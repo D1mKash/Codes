@@ -1,0 +1,53 @@
+local module = {}
+
+local UIS
+local VIM
+
+local spam = false
+local connection
+
+function module.Start()
+
+    UIS = game:GetService("UserInputService")
+    VIM = game:GetService("VirtualInputManager")
+
+    local function pressQ()
+        VIM:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+        VIM:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+    end
+
+    connection = UIS.InputBegan:Connect(function(input, gpe)
+
+        if gpe then return end
+
+        if input.KeyCode == Enum.KeyCode.X then
+
+            spam = not spam
+
+            if spam then
+                task.spawn(function()
+                    while spam do
+                        pressQ()
+                        task.wait(math.random(10,20) / 100) -- 0.10 to 0.20 seconds
+                    end
+                end)
+            end
+
+        end
+
+    end)
+
+end
+
+function module.Stop()
+
+    spam = false
+
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+
+end
+
+return module
