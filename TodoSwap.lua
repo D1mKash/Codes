@@ -20,6 +20,7 @@ local function press4()
 end
 
 local function isVisible(part)
+
     local origin = Camera.CFrame.Position
     local direction = part.Position - origin
 
@@ -28,7 +29,9 @@ local function isVisible(part)
     params.FilterDescendantsInstances = { player.Character }
 
     local result = Workspace:Raycast(origin,direction,params)
+
     return result and result.Instance:IsDescendantOf(part.Parent)
+
 end
 
 local function getClosestHead()
@@ -45,6 +48,12 @@ local function getClosestHead()
 
         if model:IsA("Model") and model ~= player.Character then
 
+            local plr = Players:FindFirstChild(model.Name)
+
+            if plr and player.Team and plr.Team == player.Team then
+                continue
+            end
+
             local head = model:FindFirstChild("Head")
             local blocking = model:FindFirstChild("Blocking")
 
@@ -54,7 +63,7 @@ local function getClosestHead()
 
                 if onScreen and isVisible(head) then
 
-                    local distance = (Vector2.new(screenPos.X,screenPos.Y)-screenCenter).Magnitude
+                    local distance = (Vector2.new(screenPos.X,screenPos.Y) - screenCenter).Magnitude
 
                     if distance < shortestDistance then
                         shortestDistance = distance
@@ -80,9 +89,11 @@ local function startLock()
     end
 
     lockConnection = RunService.RenderStepped:Connect(function()
+
         if lockedPart and lockedPart.Parent then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position,lockedPart.Position)
         end
+
     end)
 
 end
@@ -101,13 +112,17 @@ end
 local function runCombo()
 
     lockedPart = getClosestHead()
-    if not lockedPart then return end
+
+    if not lockedPart then
+        return
+    end
 
     startLock()
 
     press4()
 
     local myCharacter = LIVE:FindFirstChild(player.Name)
+
     if not myCharacter then
         stopLock()
         return
@@ -117,11 +132,14 @@ local function runCombo()
     local todoAppeared = false
 
     repeat
+
         if myCharacter:FindFirstChild("MyTodo") then
             todoAppeared = true
             break
         end
+
         task.wait()
+
     until tick() - startTime >= 3
 
     if not todoAppeared then
@@ -143,13 +161,18 @@ end
 
 function module.Start()
 
-    if inputConnection then inputConnection:Disconnect() end
+    if inputConnection then
+        inputConnection:Disconnect()
+    end
 
     inputConnection = UserInputService.InputBegan:Connect(function(input,gpe)
+
         if gpe then return end
+
         if input.KeyCode == Enum.KeyCode.Z then
             runCombo()
         end
+
     end)
 
 end
