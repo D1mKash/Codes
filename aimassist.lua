@@ -1,60 +1,100 @@
 local module = {}
 
-local connection
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
-function module.Start()
+local player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UIS = game:GetService("UserInputService")
-    local Workspace = game:GetService("Workspace")
+local lockedPart = nil
+local aimConnection
 
-    local player = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
+local function isVisible(part)
+    local origin = Camera.CFrame.Position
+    local direction = part.Position - origin
 
-    local locked
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = { player.Character }
 
-    local function getClosest()
+    local result = Workspace:Raycast(origin, direction, params)
+    return result and result.Instance:IsDescendantOf(part.Parent)
+end
 
-        local closest
-        local dist = math.huge
-        local center = Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+local function getClosestHead()
 
-        for _,p in ipairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+    local closestPart = nil
+    local shortestDistance = math.huge
 
-                local pos,onScreen = Camera:WorldToScreenPoint(p.Character.Head.Position)
+    local screenCenter = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
 
-                if onScreen then
-                    local d = (Vector2.new(pos.X,pos.Y)-center).Magnitude
+    for _, plr in ipairs(Players:GetPlayers()) do
 
-                    if d < dist then
-                        dist = d
-                        closest = p.Character.Head
-                    end
+        if plr == player then continue end
+        if player.Team and plr.Team == player.Team then continue end
+
+        local character = plr.Character
+
+        if character and character:FindFirstChild("Head") then
+
+            local head = character.Head
+
+            if not isVisible(head) then continue end
+
+            local screenPos, onScreen = Camera:WorldToScreenPoint(head.Position)
+
+            if onScreen then
+
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestPart = head
                 end
 
             end
-        end
 
-        return closest
+        end
 
     end
 
-    connection = RunService.RenderStepped:Connect(function()
+    return closestPart
 
-        if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+end
 
-            if not locked then
-                locked = getClosest()
+local function updateLock()
+
+    if lockedPart and lockedPart.Parent then
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, lockedPart.Position)
+    else
+        lockedPart = nil
+    end
+
+end
+
+function module.Start()
+
+    if aimConnection then aimConnection:Disconnect() end
+
+    aimConnection = RunService.RenderStepped:Connect(function()
+
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+
+            if not lockedPart then
+                lockedPart = getClosestHead()
             end
 
-            if locked then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position,locked.Position)
+            if lockedPart then
+                updateLock()
             end
 
         else
-            locked = nil
+            lockedPart = nil
         end
 
     end)
@@ -63,10 +103,12 @@ end
 
 function module.Stop()
 
-    if connection then
-        connection:Disconnect()
-        connection = nil
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
     end
+
+    lockedPart = nil
 
 end
 
