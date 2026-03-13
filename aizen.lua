@@ -17,7 +17,7 @@ local function pressKey(key)
 end
 
 local function randomDelay()
-    return math.random(200,300)/1000 -- 0.20 - 0.30
+    return math.random(500,600)/1000 -- 0.20 - 0.30
 end
 
 --================================================--
