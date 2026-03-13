@@ -24,7 +24,7 @@ local function click()
 end
 
 local function randomDelay()
-    return math.random(200,300)/1000
+    return math.random(500,700)/1000
 end
 
 ------------------------------------------------
