@@ -21,6 +21,7 @@ end
 
 local function click()
     VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+    task.wait(0.02)
     VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
 end
 
@@ -76,11 +77,11 @@ local function run2to1()
     pressKey(Enum.KeyCode.Two)
     click()
 
-    task.delay(comboDelay(),function()
+    task.delay(smallDelay(),function()
 
         click()
 
-        task.delay(smallDelay(),function()
+        task.delay(comboDelay(),function()
             pressKey(Enum.KeyCode.One)
         end)
 
@@ -93,11 +94,11 @@ local function run3to1()
     pressKey(Enum.KeyCode.Three)
     click()
 
-    task.delay(comboDelay(),function()
+    task.delay(smallDelay(),function()
 
         click()
 
-        task.delay(smallDelay(),function()
+        task.delay(comboDelay(),function()
             pressKey(Enum.KeyCode.One)
         end)
 
