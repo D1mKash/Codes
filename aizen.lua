@@ -17,7 +17,7 @@ local function pressKey(key)
 end
 
 local function randomDelay()
-    return math.random(100,150)/1000 -- 0.10 - 0.15
+    return math.random(200,300)/1000 -- 0.20 - 0.30
 end
 
 --================================================--
@@ -52,7 +52,7 @@ local function connectHumanoid(humanoid)
 
         damage = math.round(damage*10)/10
 
-        -- 4.5 DAMAGE COMBO
+        -- 4.5 DAMAGE
         if damage == 4.5 then
 
             pressKey(Enum.KeyCode.Two)
@@ -63,7 +63,7 @@ local function connectHumanoid(humanoid)
 
         end
 
-        -- 6 DAMAGE COMBO
+        -- 6 DAMAGE
         if damage == 6 then
 
             pressKey(Enum.KeyCode.Three)
