@@ -10,6 +10,7 @@ local animationConnection
 
 local damageHits = {}
 local buildCooldown = false
+local triggerLock = false
 
 ------------------------------------------------
 -- INPUT
@@ -26,6 +27,9 @@ end
 
 local function checkKyoka()
 
+    if triggerLock then return end
+    triggerLock = true
+
     local backpack = player:FindFirstChild("Backpack")
     if not backpack then return end
 
@@ -39,6 +43,10 @@ local function checkKyoka()
     elseif cd < 20 then
         pressKey(Enum.KeyCode.Three)
     end
+
+    task.delay(0.2,function()
+        triggerLock = false
+    end)
 
 end
 
@@ -142,6 +150,7 @@ function module.Stop()
 
     damageHits = {}
     buildCooldown = false
+    triggerLock = false
 
 end
 
