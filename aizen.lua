@@ -8,7 +8,7 @@ local player = Players.LocalPlayer
 local damageConnection
 local animationConnection
 
-local damageHits = {}
+local damageEvents = {}
 
 ------------------------------------------------
 -- INPUT
@@ -42,23 +42,30 @@ local function checkKyoka()
 end
 
 ------------------------------------------------
--- DAMAGE TRACKING
+-- DAMAGE WINDOW
 ------------------------------------------------
 
-local function registerDamage()
+local function registerDamage(amount)
 
     local now = tick()
 
-    table.insert(damageHits, now)
+    table.insert(damageEvents, {
+        time = now,
+        dmg = amount
+    })
 
-    for i = #damageHits,1,-1 do
-        if now - damageHits[i] > 2 then
-            table.remove(damageHits,i)
+    local total = 0
+
+    for i = #damageEvents,1,-1 do
+        if now - damageEvents[i].time > 2 then
+            table.remove(damageEvents,i)
+        else
+            total = total + damageEvents[i].dmg
         end
     end
 
-    if #damageHits >= 3 then
-        damageHits = {}
+    if total > 16 and total < 20 then
+        damageEvents = {}
         checkKyoka()
     end
 
@@ -77,8 +84,10 @@ function module.Start()
 
     damageConnection = damageValue.Changed:Connect(function()
 
-        if damageValue.Value > lastDamage then
-            registerDamage()
+        local diff = damageValue.Value - lastDamage
+
+        if diff > 0 then
+            registerDamage(diff)
         end
 
         lastDamage = damageValue.Value
@@ -126,7 +135,7 @@ function module.Stop()
         animationConnection = nil
     end
 
-    damageHits = {}
+    damageEvents = {}
 
 end
 
