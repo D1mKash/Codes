@@ -7,6 +7,7 @@ local player = Players.LocalPlayer
 
 local damageConnection
 local animationConnection
+local characterConnection
 
 local damageHits = {}
 local buildCooldown = false
@@ -85,29 +86,15 @@ local function registerDamage()
 end
 
 ------------------------------------------------
--- START
+-- ANIMATION LISTENER
 ------------------------------------------------
 
-function module.Start()
+local function hookAnimations(character)
 
-    local stats = player:WaitForChild("Stats")
-    local damageValue = stats:WaitForChild("Damage")
+    if animationConnection then
+        animationConnection:Disconnect()
+    end
 
-    local lastDamage = damageValue.Value
-
-    damageConnection = damageValue.Changed:Connect(function()
-
-        local diff = damageValue.Value - lastDamage
-
-        if diff > 4 then
-            registerDamage()
-        end
-
-        lastDamage = damageValue.Value
-
-    end)
-
-    local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
 
     animationConnection = humanoid.AnimationPlayed:Connect(function(track)
@@ -133,6 +120,39 @@ function module.Start()
 end
 
 ------------------------------------------------
+-- START
+------------------------------------------------
+
+function module.Start()
+
+    local stats = player:WaitForChild("Stats")
+    local damageValue = stats:WaitForChild("Damage")
+
+    local lastDamage = damageValue.Value
+
+    damageConnection = damageValue.Changed:Connect(function()
+
+        local diff = damageValue.Value - lastDamage
+
+        if diff > 4 then
+            registerDamage()
+        end
+
+        lastDamage = damageValue.Value
+
+    end)
+
+    if player.Character then
+        hookAnimations(player.Character)
+    end
+
+    characterConnection = player.CharacterAdded:Connect(function(char)
+        hookAnimations(char)
+    end)
+
+end
+
+------------------------------------------------
 -- STOP
 ------------------------------------------------
 
@@ -146,6 +166,11 @@ function module.Stop()
     if animationConnection then
         animationConnection:Disconnect()
         animationConnection = nil
+    end
+
+    if characterConnection then
+        characterConnection:Disconnect()
+        characterConnection = nil
     end
 
     damageHits = {}
