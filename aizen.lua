@@ -1,69 +1,68 @@
 local module = {}
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
-local LIVE = Workspace:WaitForChild("Live")
 
-local connection
+local damageConnection
+local animationConnection
+
+local damageHits = {}
 
 ------------------------------------------------
 -- INPUT
 ------------------------------------------------
 
 local function pressKey(key)
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
+    VirtualInputManager:SendKeyEvent(true,key,false,game)
+    VirtualInputManager:SendKeyEvent(false,key,false,game)
 end
 
 ------------------------------------------------
--- GUI CHECK
+-- COOLDOWN CHECK
 ------------------------------------------------
 
-local function getMoveName()
+local function checkKyoka()
 
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then return nil end
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
 
-    local guiBox = playerGui:FindFirstChild("GuiBox")
-    if not guiBox then return nil end
+    local kyoka = backpack:FindFirstChild("Kyoka Suigetsu")
+    if not kyoka then return end
 
-    local clone = guiBox:FindFirstChild("1Clone")
-    if not clone then return nil end
+    local cd = kyoka:GetAttribute("COOLDOWN")
 
-    local label = clone:FindFirstChild("TextLabel")
-    if not label then return nil end
+    if cd == nil or cd == 20 then
+        pressKey(Enum.KeyCode.Two)
+    elseif cd < 20 then
+        pressKey(Enum.KeyCode.Three)
+    end
 
-    return label.Text
 end
 
 ------------------------------------------------
--- DISTANCE CHECK
+-- DAMAGE TRACKING
 ------------------------------------------------
 
-local function enemyInRange()
+local function registerDamage()
 
-    local char = player.Character
-    if not char then return false end
+    local now = tick()
 
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
+    table.insert(damageHits, now)
 
-    for _,model in pairs(LIVE:GetChildren()) do
-        if model ~= char then
-            local enemyRoot = model:FindFirstChild("HumanoidRootPart")
-            if enemyRoot then
-                local distance = (enemyRoot.Position - root.Position).Magnitude
-                if distance <= 7 then
-                    return true
-                end
-            end
+    -- remove hits older than 2 seconds
+    for i = #damageHits,1,-1 do
+        if now - damageHits[i] > 2 then
+            table.remove(damageHits,i)
         end
     end
 
-    return false
+    if #damageHits >= 3 then
+        damageHits = {}
+        checkKyoka()
+    end
+
 end
 
 ------------------------------------------------
@@ -72,26 +71,30 @@ end
 
 function module.Start()
 
+    local stats = player:WaitForChild("Stats")
+    local damageValue = stats:WaitForChild("Damage")
+
+    local lastDamage = damageValue.Value
+
+    damageConnection = damageValue.Changed:Connect(function()
+
+        if damageValue.Value > lastDamage then
+            registerDamage()
+        end
+
+        lastDamage = damageValue.Value
+
+    end)
+
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
 
-    connection = humanoid.AnimationPlayed:Connect(function(track)
+    animationConnection = humanoid.AnimationPlayed:Connect(function(track)
 
         if not track.Animation then return end
 
-        local animId = track.Animation.AnimationId
-        local moveName = getMoveName()
-
-        if animId == "rbxassetid://1470532199" then
-            if moveName == "True Power" and enemyInRange() then
-                pressKey(Enum.KeyCode.One)
-            end
-        end
-
-        if animId == "rbxassetid://1461157246" then
-            if moveName == "Kurohitsugi" then
-                pressKey(Enum.KeyCode.One)
-            end
+        if track.Animation.AnimationId == "rbxassetid://1470472673" then
+            pressKey(Enum.KeyCode.Three)
         end
 
     end)
@@ -104,10 +107,17 @@ end
 
 function module.Stop()
 
-    if connection then
-        connection:Disconnect()
-        connection = nil
+    if damageConnection then
+        damageConnection:Disconnect()
+        damageConnection = nil
     end
+
+    if animationConnection then
+        animationConnection:Disconnect()
+        animationConnection = nil
+    end
+
+    damageHits = {}
 
 end
 
