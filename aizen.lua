@@ -10,7 +10,7 @@ local LIVE = Workspace:WaitForChild("Live")
 
 local healthConnections = {}
 local enemyData = {}
-local keyPressed = {} -- tracks if we're waiting for a key press
+local keyPressed = {}
 
 ------------------------------------------------
 -- INPUT HELPERS
@@ -64,14 +64,24 @@ local function connectHumanoid(humanoid)
         end
         enemyData[humanoid].lastHit = now
 
-        -- Only proceed if a key is waiting
+        local awakened = false
+        if player.Character and player.Character:FindFirstChild("Stats") then
+            awakened = player.Character.Stats:FindFirstChild("Damage") ~= nil
+        end
+
+        local dmg2 = awakened and 5.4 or 4.5
+        local dmg3 = awakened and 7.2 or 6
+
         for key, waiting in pairs(keyPressed) do
-            if waiting then
-                local threshold = (key == Enum.KeyCode.Two) and 5.4 or 7.2
-                if damage == threshold and player.Character:FindFirstChild("NoAttack") then
+            if waiting and player.Character and player.Character:FindFirstChild("NoAttack") then
+                if key == Enum.KeyCode.Two and damage >= dmg2 - 0.1 and damage <= dmg2 + 0.1 then
                     keyPressed[key] = nil
-                    click()        -- click first
-                    pressKey(Enum.KeyCode.One) -- then press 1
+                    click()
+                    pressKey(Enum.KeyCode.One)
+                elseif key == Enum.KeyCode.Three and damage >= dmg3 - 0.1 and damage <= dmg3 + 0.1 then
+                    keyPressed[key] = nil
+                    click()
+                    pressKey(Enum.KeyCode.One)
                 end
             end
         end
@@ -100,7 +110,6 @@ end
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
 
-    -- Only track if ability off cooldown
     if input.KeyCode == Enum.KeyCode.Two and getCooldown("Kido") == 20 then
         keyPressed[Enum.KeyCode.Two] = true
     elseif input.KeyCode == Enum.KeyCode.Three and getCooldown("Kyoka Suigetsu") == 20 then
