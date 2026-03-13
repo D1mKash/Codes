@@ -51,7 +51,6 @@ local function registerDamage()
 
     table.insert(damageHits, now)
 
-    -- remove hits older than 2 seconds
     for i = #damageHits,1,-1 do
         if now - damageHits[i] > 2 then
             table.remove(damageHits,i)
@@ -93,8 +92,18 @@ function module.Start()
 
         if not track.Animation then return end
 
-        if track.Animation.AnimationId == "rbxassetid://1470472673" then
+        local id = track.Animation.AnimationId
+
+        if id == "rbxassetid://1470472673" then
             pressKey(Enum.KeyCode.Three)
+        end
+
+        if id == "rbxassetid://1470532199" then
+            pressKey(Enum.KeyCode.One)
+        end
+
+        if id == "rbxassetid://1461157246" then
+            pressKey(Enum.KeyCode.One)
         end
 
     end)
