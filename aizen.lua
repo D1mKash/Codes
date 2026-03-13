@@ -9,9 +9,7 @@ local LIVE = Workspace:WaitForChild("Live")
 
 local healthConnections = {}
 
-local hitCount = 0
-local damageTotal = 0
-local lastHitTime = 0
+local enemyData = {}
 
 local function pressKey(key)
     VirtualInputManager:SendKeyEvent(true,key,false,game)
@@ -24,7 +22,7 @@ local function click()
 end
 
 local function randomDelay()
-    return math.random(500,700)/1000
+    return math.random(200,300)/1000
 end
 
 ------------------------------------------------
@@ -124,12 +122,13 @@ end
 -- DAMAGE DETECTION
 ------------------------------------------------
 
-local function resetCombo()
-    hitCount = 0
-    damageTotal = 0
-end
-
 local function connectHumanoid(humanoid)
+
+    enemyData[humanoid] = {
+        hits = 0,
+        total = 0,
+        lastHit = 0
+    }
 
     local previousHealth = humanoid.Health
 
@@ -143,28 +142,31 @@ local function connectHumanoid(humanoid)
 
         damage = math.round(damage*10)/10
 
-        if damage == 4.2 then
+        if damage ~= 4.2 then return end
 
-            local now = tick()
+        local data = enemyData[humanoid]
+        if not data then return end
 
-            if now - lastHitTime > 1 then
-                resetCombo()
+        local now = tick()
+
+        if now - data.lastHit > 1 then
+            data.hits = 0
+            data.total = 0
+        end
+
+        data.lastHit = now
+
+        data.hits += 1
+        data.total += damage
+
+        if data.hits >= 4 then
+
+            if data.total >= 16.3 and data.total <= 16.9 then
+                decideCombo()
             end
 
-            lastHitTime = now
-
-            hitCount += 1
-            damageTotal += damage
-
-            if hitCount >= 4 then
-
-                if damageTotal >= 16.3 and damageTotal <= 16.9 then
-                    decideCombo()
-                end
-
-                resetCombo()
-
-            end
+            data.hits = 0
+            data.total = 0
 
         end
 
@@ -211,6 +213,7 @@ function module.Stop()
     end
 
     healthConnections = {}
+    enemyData = {}
 
 end
 
