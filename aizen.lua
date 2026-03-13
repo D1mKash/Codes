@@ -8,7 +8,8 @@ local player = Players.LocalPlayer
 local damageConnection
 local animationConnection
 
-local damageEvents = {}
+local damageHits = {}
+local buildCooldown = false
 
 ------------------------------------------------
 -- INPUT
@@ -42,31 +43,35 @@ local function checkKyoka()
 end
 
 ------------------------------------------------
--- DAMAGE WINDOW
+-- DAMAGE TRACKING
 ------------------------------------------------
 
-local function registerDamage(amount)
+local function registerDamage()
+
+    if buildCooldown then return end
 
     local now = tick()
 
-    table.insert(damageEvents, {
-        time = now,
-        dmg = amount
-    })
+    table.insert(damageHits, now)
 
-    local total = 0
-
-    for i = #damageEvents,1,-1 do
-        if now - damageEvents[i].time > 2 then
-            table.remove(damageEvents,i)
-        else
-            total = total + damageEvents[i].dmg
+    for i = #damageHits,1,-1 do
+        if now - damageHits[i] > 2 then
+            table.remove(damageHits,i)
         end
     end
 
-    if total > 16 and total < 20 then
-        damageEvents = {}
+    if #damageHits >= 4 then
+
+        damageHits = {}
+
         checkKyoka()
+
+        buildCooldown = true
+
+        task.delay(1,function()
+            buildCooldown = false
+        end)
+
     end
 
 end
@@ -86,8 +91,8 @@ function module.Start()
 
         local diff = damageValue.Value - lastDamage
 
-        if diff > 0 then
-            registerDamage(diff)
+        if diff > 4 then
+            registerDamage()
         end
 
         lastDamage = damageValue.Value
@@ -135,7 +140,8 @@ function module.Stop()
         animationConnection = nil
     end
 
-    damageEvents = {}
+    damageHits = {}
+    buildCooldown = false
 
 end
 
