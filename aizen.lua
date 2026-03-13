@@ -2,174 +2,113 @@ local module = {}
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
+local connection
+
 ------------------------------------------------
--- INPUT HELPERS
+-- INPUT
 ------------------------------------------------
-local function click()
-    print("[Debug] Clicking")
-    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-    task.wait(0.01)
-    VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
-end
 
 local function pressKey(key)
-    print("[Debug] Pressing key:", key.Name)
-    VirtualInputManager:SendKeyEvent(true,key,false,game)
-    task.wait(0.01)
-    VirtualInputManager:SendKeyEvent(false,key,false,game)
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
 ------------------------------------------------
--- DAMAGE DETECTION
+-- GUI CHECK
 ------------------------------------------------
-local enemyData = {}
 
-local function connectHumanoid(humanoid)
-    enemyData[humanoid] = { lastHit = 0 }
+local function getMoveName()
 
-    local previousHealth = humanoid.Health
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
 
-    local conn
-    conn = humanoid.HealthChanged:Connect(function(current)
-        local damage = previousHealth - current
-        previousHealth = current
+    local guiBox = playerGui:FindFirstChild("GuiBox")
+    if not guiBox then return nil end
 
-        if damage <= 0 then return end
-        damage = math.round(damage * 10) / 10
+    local clone = guiBox:FindFirstChild("1Clone")
+    if not clone then return nil end
 
-        local now = tick()
-        if now - enemyData[humanoid].lastHit > 1 then
-            enemyData[humanoid].lastHit = now
-        end
+    local label = clone:FindFirstChild("TextLabel")
+    if not label then return nil end
 
-        return damage
-    end)
-
-    return conn
+    return label.Text
 end
 
 ------------------------------------------------
--- CHARACTER SETUP
+-- DISTANCE CHECK
 ------------------------------------------------
-local humanoidConnections = {}
 
-local function setupCharacter(model)
-    if model.Name == player.Name then return end
-    if not model:IsA("Model") then return end
+local function enemyInRange()
 
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        local conn = connectHumanoid(humanoid)
-        table.insert(humanoidConnections, conn)
-        print("[Debug] Connected humanoid for:", model.Name)
-    end
-end
-
-------------------------------------------------
--- COMBO LOGIC
-------------------------------------------------
-local function startCombo(expectedDamage)
     local char = player.Character
-    if not char then return end
+    if not char then return false end
 
-    print("[Debug] Waiting for NoAttack folder...")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
 
-    -- Wait until "NoAttack" appears
-    repeat task.wait() until char:FindFirstChild("NoAttack")
-    print("[Debug] NoAttack folder appeared")
-
-    -- Click for 0.01 seconds
-    click()
-
-    -- Wait until "NoAttack" disappears
-    repeat task.wait() until not char:FindFirstChild("NoAttack")
-    print("[Debug] NoAttack folder disappeared")
-
-    -- Press 1
-    pressKey(Enum.KeyCode.One)
-end
-
-local function handleKeyPress(key)
-    print("[Debug] Key pressed:", key.Name)
-    local gui = player:WaitForChild("PlayerGui"):WaitForChild("GuiBox", 5)
-    if not gui then
-        print("[Debug] GuiBox not found")
-        return
-    end
-
-    local clone = gui:FindFirstChild("1Clone")
-    if not clone or not clone:FindFirstChild("TextLabel") then
-        print("[Debug] 1Clone or TextLabel not found")
-        return
-    end
-
-    local text = clone.TextLabel.Text
-    print("[Debug] Detected TextLabel text:", text)
-    local damageTarget = nil
-
-    if text == "Kurohitsugi" then
-        damageTarget = 6
-    elseif text == "True Power" then
-        damageTarget = 4.5
-    else
-        print("[Debug] Text does not match Kurohitsugi or True Power")
-        return
-    end
-
-    print("[Debug] Waiting for damage:", damageTarget)
-
-    -- Track all enemies
-    for _, model in pairs(LIVE:GetChildren()) do
-        local humanoid = model:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.HealthChanged:Connect(function(current)
-                local damage = math.round((humanoid.Health - current) * -10) / 10
-                if damage == damageTarget then
-                    print("[Debug] Damage target reached:", damage)
-                    startCombo(damageTarget)
+    for _,model in pairs(LIVE:GetChildren()) do
+        if model ~= char then
+            local enemyRoot = model:FindFirstChild("HumanoidRootPart")
+            if enemyRoot then
+                local distance = (enemyRoot.Position - root.Position).Magnitude
+                if distance <= 7 then
+                    return true
                 end
-            end)
+            end
         end
     end
+
+    return false
 end
 
 ------------------------------------------------
--- INPUT LISTENER
+-- START
 ------------------------------------------------
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Two or input.KeyCode == Enum.KeyCode.Three then
-        handleKeyPress(input.KeyCode)
-    end
-end)
 
-------------------------------------------------
--- START / STOP
-------------------------------------------------
 function module.Start()
-    for _, model in pairs(LIVE:GetChildren()) do
-        setupCharacter(model)
-    end
 
-    LIVE.ChildAdded:Connect(function(model)
-        task.wait(0.1)
-        setupCharacter(model)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+
+    connection = humanoid.AnimationPlayed:Connect(function(track)
+
+        if not track.Animation then return end
+
+        local animId = track.Animation.AnimationId
+        local moveName = getMoveName()
+
+        if animId == "rbxassetid://1470532199" then
+            if moveName == "True Power" and enemyInRange() then
+                pressKey(Enum.KeyCode.One)
+            end
+        end
+
+        if animId == "rbxassetid://1461157246" then
+            if moveName == "Kurohitsugi" then
+                pressKey(Enum.KeyCode.One)
+            end
+        end
+
     end)
+
 end
+
+------------------------------------------------
+-- STOP
+------------------------------------------------
 
 function module.Stop()
-    for _, conn in pairs(humanoidConnections) do
-        conn:Disconnect()
+
+    if connection then
+        connection:Disconnect()
+        connection = nil
     end
-    humanoidConnections = {}
-    enemyData = {}
-    print("[Debug] Module stopped")
+
 end
 
 return module
