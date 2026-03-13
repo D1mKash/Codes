@@ -1,42 +1,128 @@
 local module = {}
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
-local inputConnection
 local healthConnections = {}
+
+local hitCount = 0
+local damageTotal = 0
 
 local function pressKey(key)
     VirtualInputManager:SendKeyEvent(true,key,false,game)
     VirtualInputManager:SendKeyEvent(false,key,false,game)
 end
 
-local function randomDelay()
-    return math.random(500,600)/1000 -- 0.20 - 0.30
+local function click()
+    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+    VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
 end
 
---================================================--
--- Z COMBO
---================================================--
+local function randomDelay()
+    return math.random(200,300)/1000
+end
 
-local function runZCombo()
+------------------------------------------------
+-- COOLDOWN CHECK
+------------------------------------------------
+
+local function getCooldown(name)
+
+    local obj = player.Backpack:FindFirstChild(name)
+    if not obj then return 0 end
+
+    local cd = obj:GetAttribute("COOLDOWN")
+    return cd or 0
+
+end
+
+local function isGrounded()
+
+    local char = player.Character
+    if not char then return false end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+
+    return hum.FloorMaterial ~= Enum.Material.Air
+
+end
+
+------------------------------------------------
+-- COMBO EXECUTION
+------------------------------------------------
+
+local function run2to1()
 
     pressKey(Enum.KeyCode.Two)
+    click()
 
     task.delay(randomDelay(),function()
-        pressKey(Enum.KeyCode.Three)
+        pressKey(Enum.KeyCode.One)
+        click()
     end)
 
 end
 
---================================================--
+local function run3to1()
+
+    pressKey(Enum.KeyCode.Three)
+    click()
+
+    task.delay(randomDelay(),function()
+        pressKey(Enum.KeyCode.One)
+        click()
+    end)
+
+end
+
+------------------------------------------------
+-- DECISION LOGIC
+------------------------------------------------
+
+local function decideCombo()
+
+    local kyoka = getCooldown("Kyoka Suigetsu")
+    local kido = getCooldown("Kido")
+
+    local kyokaReady = kyoka == 20
+    local kidoReady = kido == 20
+
+    local grounded = isGrounded()
+
+    if not kyokaReady and not kidoReady then
+        return
+    end
+
+    if not grounded then
+        run3to1()
+        return
+    end
+
+    if kyokaReady and kidoReady then
+        run2to1()
+        return
+    end
+
+    if not kyokaReady and kidoReady then
+        run3to1()
+        return
+    end
+
+    if kyokaReady and not kidoReady then
+        run2to1()
+        return
+    end
+
+end
+
+------------------------------------------------
 -- DAMAGE DETECTION
---================================================--
+------------------------------------------------
 
 local function connectHumanoid(humanoid)
 
@@ -52,25 +138,21 @@ local function connectHumanoid(humanoid)
 
         damage = math.round(damage*10)/10
 
-        -- 4.5 DAMAGE
-        if damage == 4.5 then
+        if damage == 4.2 then
 
-            pressKey(Enum.KeyCode.Two)
+            hitCount += 1
+            damageTotal += damage
 
-            task.delay(randomDelay(),function()
-                pressKey(Enum.KeyCode.One)
-            end)
+            if hitCount >= 4 then
 
-        end
+                if damageTotal >= 16.3 and damageTotal <= 16.9 then
+                    decideCombo()
+                end
 
-        -- 6 DAMAGE
-        if damage == 6 then
+                hitCount = 0
+                damageTotal = 0
 
-            pressKey(Enum.KeyCode.Three)
-
-            task.delay(randomDelay(),function()
-                pressKey(Enum.KeyCode.One)
-            end)
+            end
 
         end
 
@@ -80,55 +162,37 @@ local function connectHumanoid(humanoid)
 
 end
 
-local function setupDamageDetection()
+------------------------------------------------
+-- SETUP
+------------------------------------------------
 
-    for _,model in pairs(LIVE:GetChildren()) do
+local function setupCharacter(model)
 
-        if model:IsA("Model") and model.Name ~= player.Name then
+    if model.Name == player.Name then return end
+    if not model:IsA("Model") then return end
 
-            local humanoid = model:FindFirstChildOfClass("Humanoid")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
 
-            if humanoid then
-                connectHumanoid(humanoid)
-            end
-
-        end
-
+    if humanoid then
+        connectHumanoid(humanoid)
     end
 
 end
 
---================================================--
--- START / STOP
---================================================--
-
 function module.Start()
 
-    if inputConnection then
-        inputConnection:Disconnect()
+    for _,model in pairs(LIVE:GetChildren()) do
+        setupCharacter(model)
     end
 
-    inputConnection = UserInputService.InputBegan:Connect(function(input,gpe)
-
-        if gpe then return end
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
-        if input.KeyCode == Enum.KeyCode.Z then
-            runZCombo()
-        end
-
+    LIVE.ChildAdded:Connect(function(model)
+        task.wait(0.1)
+        setupCharacter(model)
     end)
-
-    setupDamageDetection()
 
 end
 
 function module.Stop()
-
-    if inputConnection then
-        inputConnection:Disconnect()
-        inputConnection = nil
-    end
 
     for _,conn in pairs(healthConnections) do
         conn:Disconnect()
