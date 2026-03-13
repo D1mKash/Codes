@@ -26,11 +26,11 @@ local function click()
 end
 
 local function comboDelay()
-    return math.random(300,350)/1000
+    return math.random(100,150)/1000
 end
 
 local function smallDelay()
-    return math.random(100,200)/1000
+    return math.random(100,125)/1000
 end
 
 ------------------------------------------------
