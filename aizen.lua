@@ -11,6 +11,7 @@ local healthConnections = {}
 
 local hitCount = 0
 local damageTotal = 0
+local lastHitTime = 0
 
 local function pressKey(key)
     VirtualInputManager:SendKeyEvent(true,key,false,game)
@@ -35,8 +36,7 @@ local function getCooldown(name)
     local obj = player.Backpack:FindFirstChild(name)
     if not obj then return 0 end
 
-    local cd = obj:GetAttribute("COOLDOWN")
-    return cd or 0
+    return obj:GetAttribute("COOLDOWN") or 0
 
 end
 
@@ -53,7 +53,7 @@ local function isGrounded()
 end
 
 ------------------------------------------------
--- COMBO EXECUTION
+-- COMBOS
 ------------------------------------------------
 
 local function run2to1()
@@ -62,8 +62,8 @@ local function run2to1()
     click()
 
     task.delay(randomDelay(),function()
-        pressKey(Enum.KeyCode.One)
         click()
+        pressKey(Enum.KeyCode.One)
     end)
 
 end
@@ -74,8 +74,8 @@ local function run3to1()
     click()
 
     task.delay(randomDelay(),function()
-        pressKey(Enum.KeyCode.One)
         click()
+        pressKey(Enum.KeyCode.One)
     end)
 
 end
@@ -124,6 +124,11 @@ end
 -- DAMAGE DETECTION
 ------------------------------------------------
 
+local function resetCombo()
+    hitCount = 0
+    damageTotal = 0
+end
+
 local function connectHumanoid(humanoid)
 
     local previousHealth = humanoid.Health
@@ -140,6 +145,14 @@ local function connectHumanoid(humanoid)
 
         if damage == 4.2 then
 
+            local now = tick()
+
+            if now - lastHitTime > 1 then
+                resetCombo()
+            end
+
+            lastHitTime = now
+
             hitCount += 1
             damageTotal += damage
 
@@ -149,8 +162,7 @@ local function connectHumanoid(humanoid)
                     decideCombo()
                 end
 
-                hitCount = 0
-                damageTotal = 0
+                resetCombo()
 
             end
 
