@@ -20,8 +20,24 @@ end
 
 local function click()
     VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-    task.wait(0.01)
+    task.wait(0.01) -- tiny delay
     VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+end
+
+------------------------------------------------
+-- COOLDOWN CHECK
+------------------------------------------------
+
+local function getCooldown(name)
+    local obj = player.Backpack:FindFirstChild(name)
+    if not obj then return 20 end
+    local cd = obj:GetAttribute("COOLDOWN")
+    if cd == nil then return 20 end
+    return cd
+end
+
+local function canUseMove(name)
+    return getCooldown(name) == 20
 end
 
 ------------------------------------------------
@@ -30,13 +46,13 @@ end
 
 local function run2to1()
     pressKey(Enum.KeyCode.Two)
-    click()
+    task.wait(0.01)
     pressKey(Enum.KeyCode.One)
 end
 
 local function run3to1()
     pressKey(Enum.KeyCode.Three)
-    click()
+    task.wait(0.01)
     pressKey(Enum.KeyCode.One)
 end
 
@@ -60,12 +76,28 @@ local function connectHumanoid(humanoid)
         local noAttack = char:FindFirstChild("NoAttack")
         if not noAttack then return end
 
+        -- Check cooldowns
+        local kyokaReady = canUseMove("Kyoka Suigetsu")
+        local kidoReady = canUseMove("Kido")
+
+        if not kyokaReady and not kidoReady then return end
+
         if damage == 5.4 then
-            click()
-            run2to1()
+            if kidoReady then
+                click()
+                run2to1()
+            elseif kyokaReady then
+                click()
+                run3to1()
+            end
         elseif damage == 7.2 then
-            click()
-            run3to1()
+            if kyokaReady then
+                click()
+                run3to1()
+            elseif kidoReady then
+                click()
+                run2to1()
+            end
         end
     end)
 
@@ -105,7 +137,6 @@ function module.Stop()
     for _, conn in pairs(healthConnections) do
         conn:Disconnect()
     end
-
     healthConnections = {}
 end
 
