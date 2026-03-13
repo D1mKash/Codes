@@ -8,8 +8,11 @@ local player = Players.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
 local healthConnections = {}
-
 local enemyData = {}
+
+------------------------------------------------
+-- INPUT
+------------------------------------------------
 
 local function pressKey(key)
     VirtualInputManager:SendKeyEvent(true,key,false,game)
@@ -22,21 +25,32 @@ local function click()
 end
 
 local function randomDelay()
-    return math.random(200,300)/1000
+    return math.random(600,700)/1000
 end
 
 ------------------------------------------------
--- COOLDOWN CHECK
+-- COOLDOWN
 ------------------------------------------------
 
 local function getCooldown(name)
 
     local obj = player.Backpack:FindFirstChild(name)
-    if not obj then return 0 end
+    if not obj then
+        return 20
+    end
 
-    return obj:GetAttribute("COOLDOWN") or 0
+    local cd = obj:GetAttribute("COOLDOWN")
 
+    if cd == nil then
+        return 20
+    end
+
+    return cd
 end
+
+------------------------------------------------
+-- GROUND CHECK
+------------------------------------------------
 
 local function isGrounded()
 
@@ -47,7 +61,6 @@ local function isGrounded()
     if not hum then return false end
 
     return hum.FloorMaterial ~= Enum.Material.Air
-
 end
 
 ------------------------------------------------
@@ -140,7 +153,7 @@ local function connectHumanoid(humanoid)
 
         if damage <= 0 then return end
 
-        damage = math.round(damage*10)/10
+        damage = math.round(damage * 10) / 10
 
         if damage ~= 4.2 then return end
 
@@ -155,7 +168,6 @@ local function connectHumanoid(humanoid)
         end
 
         data.lastHit = now
-
         data.hits += 1
         data.total += damage
 
@@ -167,7 +179,6 @@ local function connectHumanoid(humanoid)
 
             data.hits = 0
             data.total = 0
-
         end
 
     end)
@@ -177,7 +188,7 @@ local function connectHumanoid(humanoid)
 end
 
 ------------------------------------------------
--- SETUP
+-- CHARACTER SETUP
 ------------------------------------------------
 
 local function setupCharacter(model)
@@ -192,6 +203,10 @@ local function setupCharacter(model)
     end
 
 end
+
+------------------------------------------------
+-- START / STOP
+------------------------------------------------
 
 function module.Start()
 
