@@ -103,7 +103,7 @@ local function hookAnimations(character)
             anim047Triggered = true
             pressKey(Enum.KeyCode.Three)
 
-            task.delay(0.1,function()
+            task.delay(1.1,function()
                 anim047Triggered = false
             end)
 
