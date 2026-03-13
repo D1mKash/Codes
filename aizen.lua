@@ -12,24 +12,15 @@ local characterConnection
 local damageHits = {}
 local buildCooldown = false
 
-local actionLock = false
+local anim047Triggered = false
 
 ------------------------------------------------
 -- INPUT
 ------------------------------------------------
 
 local function pressKey(key)
-
-    if actionLock then return end
-    actionLock = true
-
     VirtualInputManager:SendKeyEvent(true,key,false,game)
     VirtualInputManager:SendKeyEvent(false,key,false,game)
-
-    task.delay(0.3,function()
-        actionLock = false
-    end)
-
 end
 
 ------------------------------------------------
@@ -37,8 +28,6 @@ end
 ------------------------------------------------
 
 local function checkKyoka()
-
-    if actionLock then return end
 
     local backpack = player:FindFirstChild("Backpack")
     if not backpack then return end
@@ -62,7 +51,8 @@ end
 
 local function registerDamage()
 
-    if buildCooldown or actionLock then return end
+    if buildCooldown then return end
+    if anim047Triggered then return end -- prevent stacking
 
     local now = tick()
 
@@ -104,13 +94,19 @@ local function hookAnimations(character)
 
     animationConnection = humanoid.AnimationPlayed:Connect(function(track)
 
-        if actionLock then return end
         if not track.Animation then return end
 
         local id = track.Animation.AnimationId
 
         if id == "rbxassetid://1470472673" then
+
+            anim047Triggered = true
             pressKey(Enum.KeyCode.Three)
+
+            task.delay(0.1,function()
+                anim047Triggered = false
+            end)
+
         end
 
         if id == "rbxassetid://1470532199" then
@@ -181,7 +177,7 @@ function module.Stop()
 
     damageHits = {}
     buildCooldown = false
-    actionLock = false
+    anim047Triggered = false
 
 end
 
