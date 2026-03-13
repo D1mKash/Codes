@@ -11,7 +11,7 @@ local function press3()
 end
 
 local function randomDelay()
-    return math.random(40,100) / 1000 -- 0.04 - 0.10
+    return math.random(40,100) / 1000
 end
 
 function module.Start()
@@ -23,13 +23,10 @@ function module.Start()
     inputConnection = UserInputService.InputBegan:Connect(function(input,gpe)
 
         if gpe then return end
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
         if input.KeyCode == Enum.KeyCode.Two then
-
-            task.delay(randomDelay(), function()
-                press3()
-            end)
-
+            task.delay(randomDelay(), press3)
         end
 
     end)
