@@ -3,24 +3,28 @@ local module = {}
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
 local healthConnections = {}
+local enemyData = {}
+local keyPressed = {} -- tracks if we're waiting for a key press
 
 ------------------------------------------------
--- INPUT
+-- INPUT HELPERS
 ------------------------------------------------
 
 local function pressKey(key)
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
+    VirtualInputManager:SendKeyEvent(true,key,false,game)
+    task.wait(0.01)
+    VirtualInputManager:SendKeyEvent(false,key,false,game)
 end
 
 local function click()
     VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-    task.wait(0.01) -- tiny delay
+    task.wait(0.01)
     VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
 end
 
@@ -36,31 +40,13 @@ local function getCooldown(name)
     return cd
 end
 
-local function canUseMove(name)
-    return getCooldown(name) == 20
-end
-
-------------------------------------------------
--- COMBOS
-------------------------------------------------
-
-local function run2to1()
-    pressKey(Enum.KeyCode.Two)
-    task.wait(0.01)
-    pressKey(Enum.KeyCode.One)
-end
-
-local function run3to1()
-    pressKey(Enum.KeyCode.Three)
-    task.wait(0.01)
-    pressKey(Enum.KeyCode.One)
-end
-
 ------------------------------------------------
 -- DAMAGE DETECTION
 ------------------------------------------------
 
 local function connectHumanoid(humanoid)
+    enemyData[humanoid] = { lastHit = 0 }
+
     local previousHealth = humanoid.Health
 
     local conn
@@ -71,32 +57,22 @@ local function connectHumanoid(humanoid)
         if damage <= 0 then return end
         damage = math.round(damage * 10) / 10
 
-        local char = player.Character
-        if not char then return end
-        local noAttack = char:FindFirstChild("NoAttack")
-        if not noAttack then return end
+        local now = tick()
+        if now - enemyData[humanoid].lastHit > 1 then
+            keyPressed[Enum.KeyCode.Two] = nil
+            keyPressed[Enum.KeyCode.Three] = nil
+        end
+        enemyData[humanoid].lastHit = now
 
-        -- Check cooldowns
-        local kyokaReady = canUseMove("Kyoka Suigetsu")
-        local kidoReady = canUseMove("Kido")
-
-        if not kyokaReady and not kidoReady then return end
-
-        if damage == 5.4 then
-            if kidoReady then
-                click()
-                run2to1()
-            elseif kyokaReady then
-                click()
-                run3to1()
-            end
-        elseif damage == 7.2 then
-            if kyokaReady then
-                click()
-                run3to1()
-            elseif kidoReady then
-                click()
-                run2to1()
+        -- Only proceed if a key is waiting
+        for key, waiting in pairs(keyPressed) do
+            if waiting then
+                local threshold = (key == Enum.KeyCode.Two) and 5.4 or 7.2
+                if damage == threshold and player.Character:FindFirstChild("NoAttack") then
+                    keyPressed[key] = nil
+                    click()        -- click first
+                    pressKey(Enum.KeyCode.One) -- then press 1
+                end
             end
         end
     end)
@@ -111,12 +87,26 @@ end
 local function setupCharacter(model)
     if model.Name == player.Name then return end
     if not model:IsA("Model") then return end
-
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     if humanoid then
         connectHumanoid(humanoid)
     end
 end
+
+------------------------------------------------
+-- KEY INPUT
+------------------------------------------------
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+
+    -- Only track if ability off cooldown
+    if input.KeyCode == Enum.KeyCode.Two and getCooldown("Kido") == 20 then
+        keyPressed[Enum.KeyCode.Two] = true
+    elseif input.KeyCode == Enum.KeyCode.Three and getCooldown("Kyoka Suigetsu") == 20 then
+        keyPressed[Enum.KeyCode.Three] = true
+    end
+end)
 
 ------------------------------------------------
 -- START / STOP
@@ -138,6 +128,8 @@ function module.Stop()
         conn:Disconnect()
     end
     healthConnections = {}
+    enemyData = {}
+    keyPressed = {}
 end
 
 return module
