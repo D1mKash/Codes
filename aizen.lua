@@ -24,8 +24,12 @@ local function click()
     VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
 end
 
-local function randomDelay()
+local function comboDelay()
     return math.random(600,700)/1000
+end
+
+local function smallDelay()
+    return math.random(100,200)/1000
 end
 
 ------------------------------------------------
@@ -72,9 +76,14 @@ local function run2to1()
     pressKey(Enum.KeyCode.Two)
     click()
 
-    task.delay(randomDelay(),function()
+    task.delay(comboDelay(),function()
+
         click()
-        pressKey(Enum.KeyCode.One)
+
+        task.delay(smallDelay(),function()
+            pressKey(Enum.KeyCode.One)
+        end)
+
     end)
 
 end
@@ -84,9 +93,14 @@ local function run3to1()
     pressKey(Enum.KeyCode.Three)
     click()
 
-    task.delay(randomDelay(),function()
+    task.delay(comboDelay(),function()
+
         click()
-        pressKey(Enum.KeyCode.One)
+
+        task.delay(smallDelay(),function()
+            pressKey(Enum.KeyCode.One)
+        end)
+
     end)
 
 end
@@ -179,6 +193,7 @@ local function connectHumanoid(humanoid)
 
             data.hits = 0
             data.total = 0
+
         end
 
     end)
