@@ -26,7 +26,7 @@ local function click()
 end
 
 local function comboDelay()
-    return math.random(1,3)/1000
+    return math.random(1,4)/1000
 end
 
 local function smallDelay()
