@@ -2,17 +2,22 @@ local module = {}
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
 local damageConnection
 local animationConnection
 local characterConnection
+local blockingConnection
 
 local lastDamage = 0
 local currentHumanoid
 
 local disable044 = false
+local teammate = nil
+
+local LIVE_FOLDER = workspace:WaitForChild("Live")
 
 ------------------------------------------------
 -- INPUT
@@ -74,6 +79,44 @@ local function waitForDamageTrigger()
         if tempConnection then
             tempConnection:Disconnect()
         end
+    end)
+
+end
+
+------------------------------------------------
+-- BLOCK CHECK
+------------------------------------------------
+
+local function startBlockingCheck()
+
+    blockingConnection = RunService.RenderStepped:Connect(function()
+
+        local char = player.Character
+        if not char then return end
+
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        for _,obj in ipairs(LIVE_FOLDER:GetChildren()) do
+
+            if obj ~= char and obj ~= teammate then
+
+                local enemyRoot = obj:FindFirstChild("HumanoidRootPart")
+                local blocking = obj:FindFirstChild("Blocking")
+
+                if enemyRoot and blocking and blocking.Value == true then
+
+                    local distance = (enemyRoot.Position - root.Position).Magnitude
+
+                    if distance <= 5 then
+                        pressKey(Enum.KeyCode.One)
+                        return
+                    end
+
+                end
+            end
+        end
+
     end)
 
 end
@@ -144,7 +187,9 @@ end
 -- START
 ------------------------------------------------
 
-function module.Start()
+function module.Start(team)
+
+    teammate = team
 
     local stats = player:WaitForChild("Stats")
     local damageValue = stats:WaitForChild("Damage")
@@ -162,6 +207,8 @@ function module.Start()
     characterConnection = player.CharacterAdded:Connect(function(char)
         hookAnimations(char)
     end)
+
+    startBlockingCheck()
 
 end
 
@@ -186,8 +233,14 @@ function module.Stop()
         characterConnection = nil
     end
 
+    if blockingConnection then
+        blockingConnection:Disconnect()
+        blockingConnection = nil
+    end
+
     currentHumanoid = nil
     disable044 = false
+    teammate = nil
 
 end
 
