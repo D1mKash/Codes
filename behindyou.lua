@@ -41,7 +41,9 @@ local function addTarget(obj, teammate)
     if obj == player.Character then return end
     if teammate and obj == teammate then return end
 
-    table.insert(targets, root)
+    targets[root] = {
+        inside = false
+    }
 end
 
 ------------------------------------------------
@@ -69,26 +71,32 @@ function module.Start(teammate)
         local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
-        if tick() - lastClick < COOLDOWN then
-            return
-        end
+        for enemyRoot,data in pairs(targets) do
 
-        for _,enemyRoot in ipairs(targets) do
+            if not enemyRoot or not enemyRoot.Parent then
+                targets[enemyRoot] = nil
+                continue
+            end
 
-            if enemyRoot and enemyRoot.Parent then
+            local relative = enemyRoot.CFrame:PointToObjectSpace(root.Position)
+            local distance = (enemyRoot.Position - root.Position).Magnitude
 
-                local relative = enemyRoot.CFrame:PointToObjectSpace(root.Position)
-                local distance = (enemyRoot.Position - root.Position).Magnitude
+            local behind = relative.Z > 2
+            local inZone = behind and distance >= MIN_DISTANCE and distance <= MAX_DISTANCE
 
-                local behind = relative.Z > 2
+            if inZone and not data.inside then
 
-                if behind and distance >= MIN_DISTANCE and distance <= MAX_DISTANCE then
+                if tick() - lastClick >= COOLDOWN then
                     clickLeft()
                     lastClick = tick()
-                    break
                 end
 
+                data.inside = true
+
+            elseif not inZone then
+                data.inside = false
             end
+
         end
 
     end)
