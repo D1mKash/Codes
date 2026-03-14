@@ -98,6 +98,10 @@ local function hookAnimations(character)
             waitForDamageTrigger()
         end
 
+        if id == "rbxassetid://1470472673" then
+            waitForDamageTrigger()
+        end
+            
         if id == "rbxassetid://1470532199" then
             pressKey(Enum.KeyCode.One)
         end
