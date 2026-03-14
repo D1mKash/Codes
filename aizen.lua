@@ -12,6 +12,8 @@ local characterConnection
 local lastDamage = 0
 local currentHumanoid
 
+local disable044 = false
+
 ------------------------------------------------
 -- INPUT
 ------------------------------------------------
@@ -94,12 +96,30 @@ local function hookAnimations(character)
 
         local id = track.Animation.AnimationId
 
+        ------------------------------------------------
+        -- DISABLED TRIGGER
+        ------------------------------------------------
+
         if id == "rbxassetid://1470447472" then
-            waitForDamageTrigger()
+            if not disable044 then
+                waitForDamageTrigger()
+            end
         end
 
+        ------------------------------------------------
+        -- LOCK TRIGGER
+        ------------------------------------------------
+
         if id == "rbxassetid://1470472673" then
+
             pressKey(Enum.KeyCode.Three)
+
+            disable044 = true
+
+            task.delay(2,function()
+                disable044 = false
+            end)
+
         end
             
         if id == "rbxassetid://1470532199" then
@@ -161,6 +181,7 @@ function module.Stop()
     end
 
     currentHumanoid = nil
+    disable044 = false
 
 end
 
