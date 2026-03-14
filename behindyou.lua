@@ -27,9 +27,9 @@ local function clickLeft()
 end
 
 ------------------------------------------------
--- CREATE WALL FOR A DUMMY
+-- CREATE WALL FOR AN OBJECT
 ------------------------------------------------
-local function createWall(dummyRoot)
+local function createWall(objRoot)
     local wall = Instance.new("Part")
     wall.Size = Vector3.new(WALL_WIDTH, WALL_HEIGHT, WALL_THICK)
     wall.Anchored = true
@@ -39,7 +39,8 @@ local function createWall(dummyRoot)
 
     local inside = false
 
-    local humanoid = dummyRoot.Parent:FindFirstChild("Humanoid")
+    -- remove wall if object dies (Humanoid)
+    local humanoid = objRoot.Parent:FindFirstChild("Humanoid")
     if humanoid then
         humanoid.Died:Connect(function()
             wall:Destroy()
@@ -48,7 +49,7 @@ local function createWall(dummyRoot)
 
     return {
         Wall = wall,
-        DummyRoot = dummyRoot,
+        ObjRoot = objRoot,
         Inside = inside
     }
 end
@@ -57,10 +58,8 @@ end
 -- START MODULE
 ------------------------------------------------
 function module.Start(teammate)
-    -- clear previous
     trackedWalls = {}
 
-    -- create walls for all dummies in Live
     for _, obj in ipairs(LIVE_FOLDER:GetChildren()) do
         local hrp = obj:FindFirstChild("HumanoidRootPart")
         if hrp and obj ~= player.Character and obj ~= teammate then
@@ -76,16 +75,13 @@ function module.Start(teammate)
 
         for _, data in ipairs(trackedWalls) do
             local wall = data.Wall
-            local dummyRoot = data.DummyRoot
-            if not dummyRoot or not dummyRoot.Parent then
-                -- dummy removed
-                if wall then
-                    wall:Destroy()
-                end
+            local objRoot = data.ObjRoot
+            if not objRoot or not objRoot.Parent then
+                if wall then wall:Destroy() end
                 continue
             end
 
-            local wallCF = dummyRoot.CFrame * CFrame.new(0,0,WALL_OFFSET)
+            local wallCF = objRoot.CFrame * CFrame.new(0,0,WALL_OFFSET)
             wall.CFrame = wallCF
 
             local relative = wallCF:PointToObjectSpace(root.Position)
@@ -94,7 +90,7 @@ function module.Start(teammate)
             local inZone = (relative.Z > 0 and distance <= MAX_DISTANCE)
 
             if inZone and not data.Inside then
-                clickLeft() -- trigger once
+                clickLeft()
                 data.Inside = true
             elseif not inZone then
                 data.Inside = false
@@ -112,7 +108,6 @@ function module.Stop()
         connection = nil
     end
 
-    -- destroy all walls
     for _, data in ipairs(trackedWalls) do
         if data.Wall then
             data.Wall:Destroy()
