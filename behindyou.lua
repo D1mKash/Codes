@@ -7,20 +7,21 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
-local trackedWalls = {}
 local connection
 local addedConnection
 
+local targets = {}
+
 -- Config
 local LIVE_FOLDER = workspace:WaitForChild("Live")
-local WALL_WIDTH = 15
-local WALL_HEIGHT = 8
-local WALL_THICK = 1
-local WALL_OFFSET = 3
+local MIN_DISTANCE = 2
 local MAX_DISTANCE = 10
+local COOLDOWN = 3
+
+local lastClick = 0
 
 ------------------------------------------------
--- HELPER: click left mouse
+-- CLICK
 ------------------------------------------------
 
 local function clickLeft()
@@ -29,58 +30,35 @@ local function clickLeft()
 end
 
 ------------------------------------------------
--- CREATE WALL FOR AN OBJECT
+-- ADD TARGET
 ------------------------------------------------
 
-local function createWall(obj)
+local function addTarget(obj, teammate)
 
-    local objRoot = obj:FindFirstChild("HumanoidRootPart")
-    if not objRoot then return end
+    local root = obj:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
-    local wall = Instance.new("Part")
-    wall.Size = Vector3.new(WALL_WIDTH, WALL_HEIGHT, WALL_THICK)
-    wall.Anchored = true
-    wall.CanCollide = false
-    wall.Transparency = 1
-    wall.Parent = workspace
+    if obj == player.Character then return end
+    if teammate and obj == teammate then return end
 
-    local inside = false
-
-    local humanoid = obj:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.Died:Connect(function()
-            wall:Destroy()
-        end)
-    end
-
-    table.insert(trackedWalls,{
-        Wall = wall,
-        ObjRoot = objRoot,
-        Inside = inside
-    })
+    table.insert(targets, root)
 end
 
 ------------------------------------------------
--- START MODULE
+-- START
 ------------------------------------------------
 
 function module.Start(teammate)
 
-    trackedWalls = {}
+    targets = {}
 
-    -- scan existing characters
     for _,obj in ipairs(LIVE_FOLDER:GetChildren()) do
-        if obj ~= player.Character and obj ~= teammate then
-            createWall(obj)
-        end
+        addTarget(obj, teammate)
     end
 
-    -- track new characters added later
     addedConnection = LIVE_FOLDER.ChildAdded:Connect(function(obj)
-        task.wait() -- wait for HumanoidRootPart to exist
-        if obj ~= player.Character and obj ~= teammate then
-            createWall(obj)
-        end
+        task.wait()
+        addTarget(obj, teammate)
     end)
 
     connection = RunService.RenderStepped:Connect(function()
@@ -91,46 +69,34 @@ function module.Start(teammate)
         local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
-        local liveChar = LIVE_FOLDER:FindFirstChild(player.Name)
-        local combo
-
-        if liveChar then
-            combo = liveChar:FindFirstChild("Combo")
+        if tick() - lastClick < COOLDOWN then
+            return
         end
 
-        for _,data in ipairs(trackedWalls) do
+        for _,enemyRoot in ipairs(targets) do
 
-            local wall = data.Wall
-            local objRoot = data.ObjRoot
+            if enemyRoot and enemyRoot.Parent then
 
-            if not objRoot or not objRoot.Parent then
-                if wall then wall:Destroy() end
-                continue
-            end
+                local relative = enemyRoot.CFrame:PointToObjectSpace(root.Position)
+                local distance = (enemyRoot.Position - root.Position).Magnitude
 
-            local wallCF = objRoot.CFrame * CFrame.new(0,0,WALL_OFFSET)
-            wall.CFrame = wallCF
+                local behind = relative.Z > 2
 
-            local relative = wallCF:PointToObjectSpace(root.Position)
-            local distance = relative.Magnitude
-
-            local inZone = (relative.Z > 0 and distance <= MAX_DISTANCE)
-
-            if inZone and not data.Inside then
-                if combo and combo:IsA("IntValue") and combo.Value == 0 then
+                if behind and distance >= MIN_DISTANCE and distance <= MAX_DISTANCE then
                     clickLeft()
+                    lastClick = tick()
+                    break
                 end
-                data.Inside = true
-            elseif not inZone then
-                data.Inside = false
-            end
 
+            end
         end
+
     end)
+
 end
 
 ------------------------------------------------
--- STOP MODULE
+-- STOP
 ------------------------------------------------
 
 function module.Stop()
@@ -145,13 +111,7 @@ function module.Stop()
         addedConnection = nil
     end
 
-    for _,data in ipairs(trackedWalls) do
-        if data.Wall then
-            data.Wall:Destroy()
-        end
-    end
-
-    trackedWalls = {}
+    targets = {}
 
 end
 
