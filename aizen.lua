@@ -99,7 +99,7 @@ local function hookAnimations(character)
         end
 
         if id == "rbxassetid://1470472673" then
-            waitForDamageTrigger()
+            pressKey(Enum.KeyCode.Three)
         end
             
         if id == "rbxassetid://1470532199" then
