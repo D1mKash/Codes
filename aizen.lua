@@ -19,6 +19,8 @@ local teammate = nil
 
 local LIVE_FOLDER = workspace:WaitForChild("Live")
 
+local blockCooldown = false
+
 ------------------------------------------------
 -- INPUT
 ------------------------------------------------
@@ -84,6 +86,35 @@ local function waitForDamageTrigger()
 end
 
 ------------------------------------------------
+-- BLOCK ACTION
+------------------------------------------------
+
+local function doBlockAction()
+
+    if blockCooldown then return end
+    blockCooldown = true
+
+    local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
+
+    if myChar then
+        local myBlocking = myChar:FindFirstChild("Blocking")
+
+        if myBlocking and myBlocking.Value == true then
+            pressKey(Enum.KeyCode.F)
+        end
+    end
+
+    pressKey(Enum.KeyCode.LeftShift)
+    pressKey(Enum.KeyCode.One)
+    pressKey(Enum.KeyCode.LeftShift)
+
+    task.delay(1,function()
+        blockCooldown = false
+    end)
+
+end
+
+------------------------------------------------
 -- BLOCK CHECK
 ------------------------------------------------
 
@@ -109,7 +140,7 @@ local function startBlockingCheck()
                     local distance = (enemyRoot.Position - root.Position).Magnitude
 
                     if distance <= 5 then
-                        pressKey(Enum.KeyCode.One)
+                        doBlockAction()
                         return
                     end
 
@@ -139,10 +170,6 @@ local function hookAnimations(character)
 
         local id = track.Animation.AnimationId
 
-        ------------------------------------------------
-        -- DISABLED TRIGGER
-        ------------------------------------------------
-
         if id == "rbxassetid://1470447472" then
             if not disable044 then
                 waitForDamageTrigger()
@@ -154,10 +181,6 @@ local function hookAnimations(character)
                 waitForDamageTrigger()
             end
         end
-
-        ------------------------------------------------
-        -- LOCK TRIGGER
-        ------------------------------------------------
 
         if id == "rbxassetid://1470472673" then
 
@@ -241,6 +264,7 @@ function module.Stop()
     currentHumanoid = nil
     disable044 = false
     teammate = nil
+    blockCooldown = false
 
 end
 
