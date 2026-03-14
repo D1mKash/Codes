@@ -52,7 +52,7 @@ local function waitForDamageTrigger()
 
         local diff = damageValue.Value - startDamage
 
-        if diff >= 4 and diff <= 5 and not triggered then
+        if diff >= 4 and diff <= 5.5 and not triggered then
             triggered = true
 
             if isFalling() then
