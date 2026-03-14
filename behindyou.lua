@@ -73,6 +73,13 @@ function module.Start(teammate)
         local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
+        -- get your own Combo value
+        local liveChar = LIVE_FOLDER:FindFirstChild(player.Name)
+        local combo = nil
+        if liveChar then
+            combo = liveChar:FindFirstChild("Combo")
+        end
+
         for _, data in ipairs(trackedWalls) do
             local wall = data.Wall
             local objRoot = data.ObjRoot
@@ -90,7 +97,9 @@ function module.Start(teammate)
             local inZone = (relative.Z > 0 and distance <= MAX_DISTANCE)
 
             if inZone and not data.Inside then
-                clickLeft()
+                if combo and combo:IsA("IntValue") and combo.Value == 0 then
+                    clickLeft() -- only click if your Combo == 0
+                end
                 data.Inside = true
             elseif not inZone then
                 data.Inside = false
