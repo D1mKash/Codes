@@ -29,7 +29,9 @@ end
 
 local function isFalling()
     if not currentHumanoid then return false end
-    return currentHumanoid:GetState() == Enum.HumanoidStateType.Freefall
+
+    local state = currentHumanoid:GetState()
+    return state == Enum.HumanoidStateType.Freefall
 end
 
 ------------------------------------------------
@@ -95,7 +97,7 @@ local function hookAnimations(character)
         local id = track.Animation.AnimationId
 
         ------------------------------------------------
-        -- 044 TRIGGER (can be disabled)
+        -- DISABLED TRIGGER
         ------------------------------------------------
 
         if id == "rbxassetid://1470447472" then
@@ -104,27 +106,19 @@ local function hookAnimations(character)
             end
         end
 
+        if id == "rbxassetid://3238450309" then
+            if not disable044 then
+                waitForDamageTrigger()
+            end
+        end
+
         ------------------------------------------------
-        -- 047 TRIGGER (also disables 044)
+        -- LOCK TRIGGER
         ------------------------------------------------
 
         if id == "rbxassetid://1470472673" then
 
-            waitForDamageTrigger()
-
-            disable044 = true
-
-            task.delay(2,function()
-                disable044 = false
-            end)
-
-        end
-
-        ------------------------------------------------
-        -- ADDITIONAL DISABLE TRIGGER
-        ------------------------------------------------
-
-        if id == "rbxassetid://3238450309" then
+            pressKey(Enum.KeyCode.Three)
 
             disable044 = true
 
