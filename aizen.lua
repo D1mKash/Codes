@@ -9,10 +9,8 @@ local damageConnection
 local animationConnection
 local characterConnection
 
-local damageHits = {}
-local buildCooldown = false
-
-local anim047Triggered = false
+local lastDamage = 0
+local currentHumanoid
 
 ------------------------------------------------
 -- INPUT
@@ -24,59 +22,57 @@ local function pressKey(key)
 end
 
 ------------------------------------------------
--- COOLDOWN CHECK
+-- FALL CHECK
 ------------------------------------------------
 
-local function checkKyoka()
+local function isFalling()
+    if not currentHumanoid then return false end
 
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then return end
-
-    local kyoka = backpack:FindFirstChild("Kyoka Suigetsu")
-    if not kyoka then return end
-
-    local cd = kyoka:GetAttribute("COOLDOWN")
-
-    if cd == nil or cd == 20 then
-        pressKey(Enum.KeyCode.Two)
-    elseif cd < 20 then
-        pressKey(Enum.KeyCode.Three)
-    end
-
+    local state = currentHumanoid:GetState()
+    return state == Enum.HumanoidStateType.Freefall
 end
 
 ------------------------------------------------
--- DAMAGE TRACKING
+-- DAMAGE WAIT CHECK
 ------------------------------------------------
 
-local function registerDamage()
+local function waitForDamageTrigger()
 
-    if buildCooldown then return end
-    if anim047Triggered then return end -- prevent stacking
+    local stats = player:FindFirstChild("Stats")
+    if not stats then return end
 
-    local now = tick()
+    local damageValue = stats:FindFirstChild("Damage")
+    if not damageValue then return end
 
-    table.insert(damageHits, now)
+    local startDamage = damageValue.Value
+    local triggered = false
 
-    for i = #damageHits,1,-1 do
-        if now - damageHits[i] > 2 then
-            table.remove(damageHits,i)
+    local tempConnection
+    tempConnection = damageValue.Changed:Connect(function()
+
+        local diff = damageValue.Value - startDamage
+
+        if diff >= 4 and diff <= 5 and not triggered then
+            triggered = true
+
+            if isFalling() then
+                pressKey(Enum.KeyCode.Three)
+            else
+                pressKey(Enum.KeyCode.Two)
+            end
+
+            if tempConnection then
+                tempConnection:Disconnect()
+            end
         end
-    end
 
-    if #damageHits >= 4 then
+    end)
 
-        damageHits = {}
-
-        checkKyoka()
-
-        buildCooldown = true
-
-        task.delay(1,function()
-            buildCooldown = false
-        end)
-
-    end
+    task.delay(0.5,function()
+        if tempConnection then
+            tempConnection:Disconnect()
+        end
+    end)
 
 end
 
@@ -90,23 +86,16 @@ local function hookAnimations(character)
         animationConnection:Disconnect()
     end
 
-    local humanoid = character:WaitForChild("Humanoid")
+    currentHumanoid = character:WaitForChild("Humanoid")
 
-    animationConnection = humanoid.AnimationPlayed:Connect(function(track)
+    animationConnection = currentHumanoid.AnimationPlayed:Connect(function(track)
 
         if not track.Animation then return end
 
         local id = track.Animation.AnimationId
 
-        if id == "rbxassetid://1470472673" then
-
-            anim047Triggered = true
-            pressKey(Enum.KeyCode.Three)
-
-            task.delay(1.1,function()
-                anim047Triggered = false
-            end)
-
+        if id == "rbxassetid://1470447472" then
+            waitForDamageTrigger()
         end
 
         if id == "rbxassetid://1470532199" then
@@ -130,18 +119,10 @@ function module.Start()
     local stats = player:WaitForChild("Stats")
     local damageValue = stats:WaitForChild("Damage")
 
-    local lastDamage = damageValue.Value
+    lastDamage = damageValue.Value
 
     damageConnection = damageValue.Changed:Connect(function()
-
-        local diff = damageValue.Value - lastDamage
-
-        if diff > 4 then
-            registerDamage()
-        end
-
         lastDamage = damageValue.Value
-
     end)
 
     if player.Character then
@@ -175,9 +156,7 @@ function module.Stop()
         characterConnection = nil
     end
 
-    damageHits = {}
-    buildCooldown = false
-    anim047Triggered = false
+    currentHumanoid = nil
 
 end
 
