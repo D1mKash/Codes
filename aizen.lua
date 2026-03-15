@@ -3,13 +3,16 @@ local module = {}
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
 local damageConnection
 local animationConnection
 local characterConnection
 local blockingConnection
+local zConnection
 
 local lastDamage = 0
 local currentHumanoid
@@ -20,6 +23,7 @@ local teammate = nil
 local LIVE_FOLDER = workspace:WaitForChild("Live")
 
 local blockCooldown = false
+local scanTimer = 0
 
 ------------------------------------------------
 -- INPUT
@@ -36,9 +40,37 @@ end
 
 local function isFalling()
     if not currentHumanoid then return false end
-
     local state = currentHumanoid:GetState()
     return state == Enum.HumanoidStateType.Freefall
+end
+
+------------------------------------------------
+-- POV TARGET CHECK
+------------------------------------------------
+
+local function getPOVTarget()
+
+    local origin = camera.CFrame.Position
+    local direction = camera.CFrame.LookVector * 40
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {player.Character}
+
+    local result = workspace:Raycast(origin,direction,params)
+
+    if not result then
+        return nil
+    end
+
+    local model = result.Instance:FindFirstAncestorOfClass("Model")
+    if not model then return nil end
+
+    if LIVE_FOLDER:FindFirstChild(model.Name) then
+        return model
+    end
+
+    return nil
 end
 
 ------------------------------------------------
@@ -115,12 +147,16 @@ local function doBlockAction()
 end
 
 ------------------------------------------------
--- BLOCK CHECK
+-- BLOCK CHECK (optimized)
 ------------------------------------------------
 
 local function startBlockingCheck()
 
-    blockingConnection = RunService.RenderStepped:Connect(function()
+    blockingConnection = RunService.Heartbeat:Connect(function(dt)
+
+        scanTimer += dt
+        if scanTimer < 0.1 then return end
+        scanTimer = 0
 
         local char = player.Character
         if not char then return end
@@ -146,6 +182,39 @@ local function startBlockingCheck()
 
                 end
             end
+        end
+
+    end)
+
+end
+
+------------------------------------------------
+-- Z KEY LOGIC
+------------------------------------------------
+
+local function startZHandler()
+
+    zConnection = UserInputService.InputBegan:Connect(function(input,gpe)
+
+        if gpe then return end
+        if input.KeyCode ~= Enum.KeyCode.Z then return end
+
+        local target = getPOVTarget()
+
+        pressKey(Enum.KeyCode.Two)
+        task.wait(0.2)
+
+        if not target then
+            pressKey(Enum.KeyCode.Four)
+            return
+        end
+
+        local hum = target:FindFirstChild("Humanoid")
+
+        if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
+            pressKey(Enum.KeyCode.Three)
+        else
+            pressKey(Enum.KeyCode.Four)
         end
 
     end)
@@ -232,6 +301,7 @@ function module.Start(team)
     end)
 
     startBlockingCheck()
+    startZHandler()
 
 end
 
@@ -259,6 +329,11 @@ function module.Stop()
     if blockingConnection then
         blockingConnection:Disconnect()
         blockingConnection = nil
+    end
+
+    if zConnection then
+        zConnection:Disconnect()
+        zConnection = nil
     end
 
     currentHumanoid = nil
