@@ -189,7 +189,7 @@ local function startBlockingCheck()
 end
 
 ------------------------------------------------
--- Z KEY LOGIC
+-- INPUT HANDLER (Z and X)
 ------------------------------------------------
 
 local function startZHandler()
@@ -197,24 +197,41 @@ local function startZHandler()
     zConnection = UserInputService.InputBegan:Connect(function(input,gpe)
 
         if gpe then return end
-        if input.KeyCode ~= Enum.KeyCode.Z then return end
 
-        local target = getPOVTarget()
+        ------------------------------------------------
+        -- Z KEY
+        ------------------------------------------------
+        if input.KeyCode == Enum.KeyCode.Z then
 
-        pressKey(Enum.KeyCode.Two)
-        task.wait(0.2)
+            local target = getPOVTarget()
 
-        if not target then
-            pressKey(Enum.KeyCode.Four)
-            return
+            pressKey(Enum.KeyCode.Two)
+            task.wait(0.2)
+
+            if not target then
+                pressKey(Enum.KeyCode.Four)
+                return
+            end
+
+            local hum = target:FindFirstChild("Humanoid")
+
+            if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
+                pressKey(Enum.KeyCode.Three)
+            else
+                pressKey(Enum.KeyCode.Four)
+            end
+
         end
 
-        local hum = target:FindFirstChild("Humanoid")
+        ------------------------------------------------
+        -- X KEY
+        ------------------------------------------------
+        if input.KeyCode == Enum.KeyCode.X then
 
-        if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
-            pressKey(Enum.KeyCode.Three)
-        else
-            pressKey(Enum.KeyCode.Four)
+            pressKey(Enum.KeyCode.Two)
+            task.wait(0.2)
+            pressKey(Enum.KeyCode.Two)
+
         end
 
     end)
