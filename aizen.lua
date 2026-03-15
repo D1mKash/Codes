@@ -168,22 +168,59 @@ local function startZHandler()
 
         if gpe then return end
 
+        local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
+        local isBlocking = false
+
+        if myChar then
+            local blocking = myChar:FindFirstChild("Blocking")
+            if blocking and blocking.Value == true then
+                isBlocking = true
+            end
+        end
+
+        ------------------------------------------------
+        -- Z KEY
+        ------------------------------------------------
         if input.KeyCode == Enum.KeyCode.Z then
+
+            if isBlocking then
+                pressKey(Enum.KeyCode.F)
+            end
+
             pressKey(Enum.KeyCode.Two)
             task.wait(0.2)
             pressKey(Enum.KeyCode.Four)
+
         end
 
+        ------------------------------------------------
+        -- X KEY
+        ------------------------------------------------
         if input.KeyCode == Enum.KeyCode.X then
+
+            if isBlocking then
+                pressKey(Enum.KeyCode.F)
+            end
+
             pressKey(Enum.KeyCode.Two)
             task.wait(0.2)
             pressKey(Enum.KeyCode.Three)
+
         end
 
+        ------------------------------------------------
+        -- C KEY
+        ------------------------------------------------
         if input.KeyCode == Enum.KeyCode.C then
+
+            if isBlocking then
+                pressKey(Enum.KeyCode.F)
+            end
+
             pressKey(Enum.KeyCode.Two)
             task.wait(0.2)
             pressKey(Enum.KeyCode.Two)
+
         end
 
     end)
