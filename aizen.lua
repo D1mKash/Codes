@@ -6,7 +6,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
 local damageConnection
 local animationConnection
@@ -42,35 +41,6 @@ local function isFalling()
     if not currentHumanoid then return false end
     local state = currentHumanoid:GetState()
     return state == Enum.HumanoidStateType.Freefall
-end
-
-------------------------------------------------
--- POV TARGET CHECK
-------------------------------------------------
-
-local function getPOVTarget()
-
-    local origin = camera.CFrame.Position
-    local direction = camera.CFrame.LookVector * 40
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {player.Character}
-
-    local result = workspace:Raycast(origin,direction,params)
-
-    if not result then
-        return nil
-    end
-
-    local model = result.Instance:FindFirstAncestorOfClass("Model")
-    if not model then return nil end
-
-    if LIVE_FOLDER:FindFirstChild(model.Name) then
-        return model
-    end
-
-    return nil
 end
 
 ------------------------------------------------
@@ -147,7 +117,7 @@ local function doBlockAction()
 end
 
 ------------------------------------------------
--- BLOCK CHECK (optimized)
+-- BLOCK CHECK
 ------------------------------------------------
 
 local function startBlockingCheck()
@@ -189,7 +159,7 @@ local function startBlockingCheck()
 end
 
 ------------------------------------------------
--- INPUT HANDLER (Z and X)
+-- INPUT HANDLER (Z, X, C)
 ------------------------------------------------
 
 local function startZHandler()
@@ -198,40 +168,22 @@ local function startZHandler()
 
         if gpe then return end
 
-        ------------------------------------------------
-        -- Z KEY
-        ------------------------------------------------
         if input.KeyCode == Enum.KeyCode.Z then
-
-            local target = getPOVTarget()
-
             pressKey(Enum.KeyCode.Two)
             task.wait(0.2)
-
-            if not target then
-                pressKey(Enum.KeyCode.Four)
-                return
-            end
-
-            local hum = target:FindFirstChild("Humanoid")
-
-            if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
-                pressKey(Enum.KeyCode.Three)
-            else
-                pressKey(Enum.KeyCode.Four)
-            end
-
+            pressKey(Enum.KeyCode.Four)
         end
 
-        ------------------------------------------------
-        -- X KEY
-        ------------------------------------------------
         if input.KeyCode == Enum.KeyCode.X then
+            pressKey(Enum.KeyCode.Two)
+            task.wait(0.2)
+            pressKey(Enum.KeyCode.Three)
+        end
 
+        if input.KeyCode == Enum.KeyCode.C then
             pressKey(Enum.KeyCode.Two)
             task.wait(0.2)
             pressKey(Enum.KeyCode.Two)
-
         end
 
     end)
