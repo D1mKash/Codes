@@ -52,7 +52,7 @@ local function isEnemyNearby(radius)
 end
 
 local function getBlockingValue()
-    local world = LIVE:FindFirstChild("World_Platinum")
+    local world = LIVE:FindFirstChild(player.Name)
     if not world then return nil end
     return world:FindFirstChild("Blocking")
 end
