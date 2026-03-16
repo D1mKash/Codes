@@ -91,6 +91,14 @@ end
 -- BLOCK ACTION
 ------------------------------------------------
 
+local function tapKey(key, holdTime)
+    holdTime = holdTime or 0.05
+
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, key, false, game)
+    task.wait(holdTime)
+    game:GetService("VirtualInputManager"):SendKeyEvent(false, key, false, game)
+end
+
 local function doBlockAction()
 
     if blockCooldown then return end
@@ -102,7 +110,7 @@ local function doBlockAction()
         local myBlocking = myChar:FindFirstChild("Blocking")
 
         if myBlocking and myBlocking.Value == true then
-            pressKey(Enum.KeyCode.F)
+            tapKey(Enum.KeyCode.F, 0.05)
         end
     end
 
