@@ -196,7 +196,7 @@ local function startZHandler()
             end
 
             pressKey(Enum.KeyCode.Two)
-            task.wait(0.2)
+            task.wait(0.02)
             pressKey(Enum.KeyCode.Four)
 
         end
@@ -211,7 +211,7 @@ local function startZHandler()
             end
 
             pressKey(Enum.KeyCode.Two)
-            task.wait(0.2)
+            task.wait(0.02)
             pressKey(Enum.KeyCode.Three)
 
         end
@@ -226,7 +226,7 @@ local function startZHandler()
             end
 
             pressKey(Enum.KeyCode.Two)
-            task.wait(0.2)
+            task.wait(0.02)
             pressKey(Enum.KeyCode.Two)
 
         end
