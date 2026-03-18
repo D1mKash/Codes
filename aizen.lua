@@ -1,360 +1,164 @@
-local module = {}
+local _0xA={}local _0x1=game local _0x2=_0x1.GetService local _0x3=_0x2(_0x1,"Players")local _0x4=_0x2(_0x1,"VirtualInputManager")local _0x5=_0x2(_0x1,"RunService")local _0x6=_0x2(_0x1,"UserInputService")
+local _0x7=_0x3.LocalPlayer
 
-local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local _0x8=nil local _0x9=nil local _0x10=nil local _0x11=nil local _0x12=nil
+local _0x13=0 local _0x14=nil
+local _0x15=false local _0x16=nil
+local _0x17=workspace:WaitForChild("Live")
+local _0x18=false local _0x19=0
 
-local player = Players.LocalPlayer
-
-local damageConnection
-local animationConnection
-local characterConnection
-local blockingConnection
-local zConnection
-
-local lastDamage = 0
-local currentHumanoid
-
-local disable044 = false
-local teammate = nil
-
-local LIVE_FOLDER = workspace:WaitForChild("Live")
-
-local blockCooldown = false
-local scanTimer = 0
-
-------------------------------------------------
--- INPUT
-------------------------------------------------
-
-local function pressKey(key)
-    VirtualInputManager:SendKeyEvent(true,key,false,game)
-    VirtualInputManager:SendKeyEvent(false,key,false,game)
+local function _0x20(_0x21)
+_0x4:SendKeyEvent(true,_0x21,false,_0x1)
+_0x4:SendKeyEvent(false,_0x21,false,_0x1)
 end
 
-------------------------------------------------
--- FALL CHECK
-------------------------------------------------
-
-local function isFalling()
-    if not currentHumanoid then return false end
-    local state = currentHumanoid:GetState()
-    return state == Enum.HumanoidStateType.Freefall
+local function _0x22()
+if not _0x14 then return false end
+local _0x23=_0x14:GetState()
+return _0x23==Enum.HumanoidStateType.Freefall
 end
 
-------------------------------------------------
--- DAMAGE WAIT CHECK
-------------------------------------------------
+local function _0x24()
+local _0x25=_0x7:FindFirstChild("Stats")if not _0x25 then return end
+local _0x26=_0x25:FindFirstChild("Damage")if not _0x26 then return end
 
-local function waitForDamageTrigger()
+local _0x27=_0x26.Value local _0x28=false
+local _0x29
 
-    local stats = player:FindFirstChild("Stats")
-    if not stats then return end
+_0x29=_0x26.Changed:Connect(function()
+local _0x30=_0x26.Value-_0x27
+if _0x30>=4 and _0x30<=5.5 and not _0x28 then
+_0x28=true
+if _0x22()then _0x20(Enum.KeyCode.Three)else _0x20(Enum.KeyCode.Two)end
+if _0x29 then _0x29:Disconnect()end
+end
+end)
 
-    local damageValue = stats:FindFirstChild("Damage")
-    if not damageValue then return end
-
-    local startDamage = damageValue.Value
-    local triggered = false
-
-    local tempConnection
-    tempConnection = damageValue.Changed:Connect(function()
-
-        local diff = damageValue.Value - startDamage
-
-        if diff >= 4 and diff <= 5.5 and not triggered then
-            triggered = true
-
-            if isFalling() then
-                pressKey(Enum.KeyCode.Three)
-            else
-                pressKey(Enum.KeyCode.Two)
-            end
-
-            if tempConnection then
-                tempConnection:Disconnect()
-            end
-        end
-
-    end)
-
-    task.delay(0.5,function()
-        if tempConnection then
-            tempConnection:Disconnect()
-        end
-    end)
-
+task.delay(0.5,function()
+if _0x29 then _0x29:Disconnect()end
+end)
 end
 
-------------------------------------------------
--- BLOCK ACTION
-------------------------------------------------
-
-local function tapKey(key, holdTime)
-    holdTime = holdTime or 0.05
-
-    game:GetService("VirtualInputManager"):SendKeyEvent(true, key, false, game)
-    task.wait(holdTime)
-    game:GetService("VirtualInputManager"):SendKeyEvent(false, key, false, game)
+local function _0x31(_0x32,_0x33)
+_0x33=_0x33 or 0.05
+_0x4:SendKeyEvent(true,_0x32,false,_0x1)
+task.wait(_0x33)
+_0x4:SendKeyEvent(false,_0x32,false,_0x1)
 end
 
-local function doBlockAction()
+local function _0x34()
+if _0x18 then return end
+_0x18=true
 
-    if blockCooldown then return end
-    blockCooldown = true
-
-    local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
-
-    if myChar then
-        local myBlocking = myChar:FindFirstChild("Blocking")
-
-        if myBlocking and myBlocking.Value == true then
-            tapKey(Enum.KeyCode.F, 0.05)
-        end
-    end
-
-    pressKey(Enum.KeyCode.LeftShift)
-    pressKey(Enum.KeyCode.One)
-    pressKey(Enum.KeyCode.LeftShift)
-
-    task.delay(1,function()
-        blockCooldown = false
-    end)
-
+local _0x35=_0x17:FindFirstChild(_0x7.Name)
+if _0x35 then
+local _0x36=_0x35:FindFirstChild("Blocking")
+if _0x36 and _0x36.Value==true then
+_0x31(Enum.KeyCode.F,0.05)
+end
 end
 
-------------------------------------------------
--- BLOCK CHECK
-------------------------------------------------
+_0x20(Enum.KeyCode.LeftShift)
+_0x20(Enum.KeyCode.One)
+_0x20(Enum.KeyCode.LeftShift)
 
-local function startBlockingCheck()
-
-    blockingConnection = RunService.Heartbeat:Connect(function(dt)
-
-        scanTimer += dt
-        if scanTimer < 0.1 then return end
-        scanTimer = 0
-
-        local char = player.Character
-        if not char then return end
-
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-
-        for _,obj in ipairs(LIVE_FOLDER:GetChildren()) do
-
-            if obj ~= char and obj ~= teammate then
-
-                local enemyRoot = obj:FindFirstChild("HumanoidRootPart")
-                local blocking = obj:FindFirstChild("Blocking")
-
-                if enemyRoot and blocking and blocking.Value == true then
-
-                    local distance = (enemyRoot.Position - root.Position).Magnitude
-
-                    if distance <= 5 then
-                        doBlockAction()
-                        return
-                    end
-
-                end
-            end
-        end
-
-    end)
-
+task.delay(1,function()_0x18=false end)
 end
 
-------------------------------------------------
--- INPUT HANDLER (Z, X, C)
-------------------------------------------------
+local function _0x37()
+_0x11=_0x5.Heartbeat:Connect(function(_0x38)
+_0x19=_0x19+_0x38 if _0x19<0.1 then return end _0x19=0
 
-local function startZHandler()
+local _0x39=_0x7.Character if not _0x39 then return end
+local _0x40=_0x39:FindFirstChild("HumanoidRootPart")if not _0x40 then return end
 
-    zConnection = UserInputService.InputBegan:Connect(function(input,gpe)
-
-        if gpe then return end
-
-        local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
-        local isBlocking = false
-
-        if myChar then
-            local blocking = myChar:FindFirstChild("Blocking")
-            if blocking and blocking.Value == true then
-                isBlocking = true
-            end
-        end
-
-        ------------------------------------------------
-        -- Z KEY
-        ------------------------------------------------
-        if input.KeyCode == Enum.KeyCode.Z then
-
-            if isBlocking then
-                pressKey(Enum.KeyCode.F)
-            end
-
-            pressKey(Enum.KeyCode.Two)
-            task.wait(0.02)
-            pressKey(Enum.KeyCode.Four)
-
-        end
-
-        ------------------------------------------------
-        -- X KEY
-        ------------------------------------------------
-        if input.KeyCode == Enum.KeyCode.X then
-
-            if isBlocking then
-                pressKey(Enum.KeyCode.F)
-            end
-
-            pressKey(Enum.KeyCode.Two)
-            task.wait(0.02)
-            pressKey(Enum.KeyCode.Three)
-
-        end
-
-        ------------------------------------------------
-        -- C KEY
-        ------------------------------------------------
-        if input.KeyCode == Enum.KeyCode.C then
-
-            if isBlocking then
-                pressKey(Enum.KeyCode.F)
-            end
-
-            pressKey(Enum.KeyCode.Two)
-            task.wait(0.02)
-            pressKey(Enum.KeyCode.Two)
-
-        end
-
-    end)
-
+for _,_0x41 in ipairs(_0x17:GetChildren())do
+if _0x41~=_0x39 and _0x41~=_0x16 then
+local _0x42=_0x41:FindFirstChild("HumanoidRootPart")
+local _0x43=_0x41:FindFirstChild("Blocking")
+if _0x42 and _0x43 and _0x43.Value==true then
+local _0x44=(_0x42.Position-_0x40.Position).Magnitude
+if _0x44<=5 then _0x34()return end
+end
+end
+end
+end)
 end
 
-------------------------------------------------
--- ANIMATION LISTENER
-------------------------------------------------
+local function _0x45()
+_0x12=_0x6.InputBegan:Connect(function(_0x46,_0x47)
+if _0x47 then return end
 
-local function hookAnimations(character)
-
-    if animationConnection then
-        animationConnection:Disconnect()
-    end
-
-    currentHumanoid = character:WaitForChild("Humanoid")
-
-    animationConnection = currentHumanoid.AnimationPlayed:Connect(function(track)
-
-        if not track.Animation then return end
-
-        local id = track.Animation.AnimationId
-
-        if id == "rbxassetid://1470447472" then
-            if not disable044 then
-                waitForDamageTrigger()
-            end
-        end
-
-        if id == "rbxassetid://3238450309" then
-            if not disable044 then
-                waitForDamageTrigger()
-            end
-        end
-
-        if id == "rbxassetid://1470472673" then
-
-            pressKey(Enum.KeyCode.Three)
-
-            disable044 = true
-
-            task.delay(2,function()
-                disable044 = false
-            end)
-
-        end
-            
-        if id == "rbxassetid://1470532199" then
-            pressKey(Enum.KeyCode.One)
-        end
-
-        if id == "rbxassetid://1461157246" then
-            pressKey(Enum.KeyCode.One)
-        end
-
-    end)
-
+local _0x48=_0x17:FindFirstChild(_0x7.Name)
+local _0x49=false
+if _0x48 then
+local _0x50=_0x48:FindFirstChild("Blocking")
+if _0x50 and _0x50.Value==true then _0x49=true end
 end
 
-------------------------------------------------
--- START
-------------------------------------------------
-
-function module.Start(team)
-
-    teammate = team
-
-    local stats = player:WaitForChild("Stats")
-    local damageValue = stats:WaitForChild("Damage")
-
-    lastDamage = damageValue.Value
-
-    damageConnection = damageValue.Changed:Connect(function()
-        lastDamage = damageValue.Value
-    end)
-
-    if player.Character then
-        hookAnimations(player.Character)
-    end
-
-    characterConnection = player.CharacterAdded:Connect(function(char)
-        hookAnimations(char)
-    end)
-
-    startBlockingCheck()
-    startZHandler()
-
+if _0x46.KeyCode==Enum.KeyCode.Z then
+if _0x49 then _0x20(Enum.KeyCode.F)end
+_0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Four)
 end
 
-------------------------------------------------
--- STOP
-------------------------------------------------
-
-function module.Stop()
-
-    if damageConnection then
-        damageConnection:Disconnect()
-        damageConnection = nil
-    end
-
-    if animationConnection then
-        animationConnection:Disconnect()
-        animationConnection = nil
-    end
-
-    if characterConnection then
-        characterConnection:Disconnect()
-        characterConnection = nil
-    end
-
-    if blockingConnection then
-        blockingConnection:Disconnect()
-        blockingConnection = nil
-    end
-
-    if zConnection then
-        zConnection:Disconnect()
-        zConnection = nil
-    end
-
-    currentHumanoid = nil
-    disable044 = false
-    teammate = nil
-    blockCooldown = false
-
+if _0x46.KeyCode==Enum.KeyCode.X then
+if _0x49 then _0x20(Enum.KeyCode.F)end
+_0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
 end
 
-return module
+if _0x46.KeyCode==Enum.KeyCode.C then
+if _0x49 then _0x20(Enum.KeyCode.F)end
+_0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Two)
+end
+end)
+end
+
+local function _0x51(_0x52)
+if _0x9 then _0x9:Disconnect()end
+_0x14=_0x52:WaitForChild("Humanoid")
+
+_0x9=_0x14.AnimationPlayed:Connect(function(_0x53)
+if not _0x53.Animation then return end
+local _0x54=_0x53.Animation.AnimationId
+
+if _0x54=="rbxassetid://1470447472"then if not _0x15 then _0x24()end end
+if _0x54=="rbxassetid://3238450309"then if not _0x15 then _0x24()end end
+
+if _0x54=="rbxassetid://1470472673"then
+_0x20(Enum.KeyCode.Three)
+_0x15=true
+task.delay(2,function()_0x15=false end)
+end
+
+if _0x54=="rbxassetid://1470532199"then _0x20(Enum.KeyCode.One)end
+if _0x54=="rbxassetid://1461157246"then _0x20(Enum.KeyCode.One)end
+
+end)
+end
+
+function _0xA.Start(_0x55)
+_0x16=_0x55
+
+local _0x56=_0x7:WaitForChild("Stats")
+local _0x57=_0x56:WaitForChild("Damage")
+
+_0x13=_0x57.Value
+_0x8=_0x57.Changed:Connect(function()_0x13=_0x57.Value end)
+
+if _0x7.Character then _0x51(_0x7.Character)end
+_0x10=_0x7.CharacterAdded:Connect(function(_0x58)_0x51(_0x58)end)
+
+_0x37()_0x45()
+end
+
+function _0xA.Stop()
+if _0x8 then _0x8:Disconnect()_0x8=nil end
+if _0x9 then _0x9:Disconnect()_0x9=nil end
+if _0x10 then _0x10:Disconnect()_0x10=nil end
+if _0x11 then _0x11:Disconnect()_0x11=nil end
+if _0x12 then _0x12:Disconnect()_0x12=nil end
+
+_0x14=nil _0x15=false _0x16=nil _0x18=false
+end
+
+return _0xA
