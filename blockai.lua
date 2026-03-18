@@ -1,151 +1,111 @@
-local module = {}
+local _0xA={}local _0x1=game local _0x2=_0x1.GetService
+local _0x3=_0x2(_0x1,"Players")local _0x4=_0x2(_0x1,"UserInputService")
+local _0x5=_0x2(_0x1,"VirtualInputManager")local _0x6=_0x2(_0x1,"Workspace")
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local Workspace = game:GetService("Workspace")
+local _0x7=_0x3.LocalPlayer local _0x8=_0x6:WaitForChild("Live")
 
-local player = Players.LocalPlayer
-local LIVE = Workspace:WaitForChild("Live")
+local _0x9=nil local _0x10=nil local _0x11=nil
 
-local humanoidConnection
-local inputBeganConnection
-local inputEndedConnection
+local _0x12=0 local _0x13=false local _0x14=true
 
-local previousHealth = 0
-local holdingF = false
-local blockEnabled = true
+local _0x15=0.6 local _0x16=1.2 local _0x17=0.12 local _0x18=0
 
-local MIN_DAMAGE = 0.6
-local MAX_DAMAGE = 1.2
-local COUNTER_COOLDOWN = 0.12
-local lastCounterTime = 0
-
-local function pressF(state)
-    VirtualInputManager:SendKeyEvent(state, Enum.KeyCode.F, false, game)
+local function _0x19(_0x1A)
+_0x5:SendKeyEvent(_0x1A,Enum.KeyCode.F,false,_0x1)
 end
 
-local function click()
-    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-    VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+local function _0x1B()
+_0x5:SendMouseButtonEvent(0,0,0,true,_0x1,0)
+_0x5:SendMouseButtonEvent(0,0,0,false,_0x1,0)
 end
 
-local function isEnemyNearby(radius)
-    local character = player.Character
-    if not character then return false end
+local function _0x1C(_0x1D)
+local _0x1E=_0x7.Character if not _0x1E then return false end
+local _0x1F=_0x1E:FindFirstChild("HumanoidRootPart")if not _0x1F then return false end
 
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-
-    for _, model in pairs(LIVE:GetChildren()) do
-        if model:IsA("Model") and model ~= character then
-            local hrp = model:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                if (hrp.Position - root.Position).Magnitude <= radius then
-                    return true
-                end
-            end
-        end
-    end
-
-    return false
+for _,_0x20 in pairs(_0x8:GetChildren())do
+if _0x20:IsA("Model")and _0x20~=_0x1E then
+local _0x21=_0x20:FindFirstChild("HumanoidRootPart")
+if _0x21 then
+if (_0x21.Position-_0x1F.Position).Magnitude<=_0x1D then
+return true
+end
+end
+end
 end
 
-local function getBlockingValue()
-    local world = LIVE:FindFirstChild(player.Name)
-    if not world then return nil end
-    return world:FindFirstChild("Blocking")
+return false
 end
 
-local function connectBlockSystem(humanoid)
-
-    if humanoidConnection then
-        humanoidConnection:Disconnect()
-    end
-
-    previousHealth = humanoid.Health
-
-    humanoidConnection = humanoid.HealthChanged:Connect(function(currentHealth)
-
-        local damage = previousHealth - currentHealth
-        previousHealth = currentHealth
-
-        if damage <= 0 then return end
-        if not blockEnabled then return end
-        if not holdingF then return end
-        if not isEnemyNearby(15) then return end
-
-        damage = math.round(damage * 1000) / 1000
-
-        if damage < MIN_DAMAGE then return end
-        if damage > MAX_DAMAGE then return end
-        if tick() - lastCounterTime < COUNTER_COOLDOWN then return end
-
-        local blocking = getBlockingValue()
-
-        if blocking and blocking.Value == true then
-            lastCounterTime = tick()
-            pressF(false)
-            holdingF = false
-            click()
-        end
-
-    end)
-
+local function _0x22()
+local _0x23=_0x8:FindFirstChild(_0x7.Name)
+if not _0x23 then return nil end
+return _0x23:FindFirstChild("Blocking")
 end
 
-function module.Start()
+local function _0x24(_0x25)
+if _0x9 then _0x9:Disconnect()end
 
-    if player.Character then
-        connectBlockSystem(player.Character:WaitForChild("Humanoid"))
-    end
+_0x12=_0x25.Health
 
-    player.CharacterAdded:Connect(function(character)
-        connectBlockSystem(character:WaitForChild("Humanoid"))
-    end)
+_0x9=_0x25.HealthChanged:Connect(function(_0x26)
+local _0x27=_0x12-_0x26 _0x12=_0x26
 
-    inputBeganConnection = UserInputService.InputBegan:Connect(function(input,gpe)
+if _0x27<=0 then return end
+if not _0x14 then return end
+if not _0x13 then return end
+if not _0x1C(15)then return end
 
-        if gpe then return end
+_0x27=math.round(_0x27*1000)/1000
 
-        if input.KeyCode == Enum.KeyCode.F then
-            holdingF = true
-            pressF(true)
-        end
+if _0x27<_0x15 then return end
+if _0x27>_0x16 then return end
+if tick()-_0x18<_0x17 then return end
 
-    end)
+local _0x28=_0x22()
 
-    inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
-
-        if input.KeyCode == Enum.KeyCode.F then
-            holdingF = false
-            pressF(false)
-        end
-
-    end)
-
+if _0x28 and _0x28.Value==true then
+_0x18=tick()
+_0x19(false)
+_0x13=false
+_0x1B()
 end
 
-function module.Stop()
-
-    blockEnabled = false
-    holdingF = false
-
-    if humanoidConnection then
-        humanoidConnection:Disconnect()
-        humanoidConnection = nil
-    end
-
-    if inputBeganConnection then
-        inputBeganConnection:Disconnect()
-        inputBeganConnection = nil
-    end
-
-    if inputEndedConnection then
-        inputEndedConnection:Disconnect()
-        inputEndedConnection = nil
-    end
-
+end)
 end
 
-return module
+function _0xA.Start()
+if _0x7.Character then
+_0x24(_0x7.Character:WaitForChild("Humanoid"))
+end
+
+_0x7.CharacterAdded:Connect(function(_0x29)
+_0x24(_0x29:WaitForChild("Humanoid"))
+end)
+
+_0x10=_0x4.InputBegan:Connect(function(_0x2A,_0x2B)
+if _0x2B then return end
+
+if _0x2A.KeyCode==Enum.KeyCode.F then
+_0x13=true
+_0x19(true)
+end
+end)
+
+_0x11=_0x4.InputEnded:Connect(function(_0x2C)
+if _0x2C.KeyCode==Enum.KeyCode.F then
+_0x13=false
+_0x19(false)
+end
+end)
+end
+
+function _0xA.Stop()
+_0x14=false _0x13=false
+
+if _0x9 then _0x9:Disconnect()_0x9=nil end
+if _0x10 then _0x10:Disconnect()_0x10=nil end
+if _0x11 then _0x11:Disconnect()_0x11=nil end
+end
+
+return _0xA
