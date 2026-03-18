@@ -1,115 +1,74 @@
-local module = {}
+local _0xA={}local _0x1=game local _0x2=_0x1.GetService local _0x3=_0x2(_0x1,"Players")local _0x4=_0x2(_0x1,"UserInputService")local _0x5=_0x2(_0x1,"Workspace")local _0x6=_0x2(_0x1,"RunService")
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+local _0x7=_0x3.LocalPlayer local _0x8=_0x5.CurrentCamera
 
-local player = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+local _0x9=nil local _0x10=nil
 
-local lockedPart = nil
-local aimConnection
-
-local function isVisible(part)
-    local origin = Camera.CFrame.Position
-    local direction = part.Position - origin
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { player.Character }
-
-    local result = Workspace:Raycast(origin, direction, params)
-    return result and result.Instance:IsDescendantOf(part.Parent)
+local function _0x11(_0x12)
+local _0x13=_0x8.CFrame.Position local _0x14=_0x12.Position-_0x13
+local _0x15=RaycastParams.new()_0x15.FilterType=Enum.RaycastFilterType.Exclude
+_0x15.FilterDescendantsInstances={_0x7.Character}
+local _0x16=_0x5:Raycast(_0x13,_0x14,_0x15)
+return _0x16 and _0x16.Instance:IsDescendantOf(_0x12.Parent)
 end
 
-local function getClosestHead()
+local function _0x17()
+local _0x18=nil local _0x19=math.huge
+local _0x20=Vector2.new(_0x8.ViewportSize.X/2,_0x8.ViewportSize.Y/2)
 
-    local closestPart = nil
-    local shortestDistance = math.huge
+for _,_0x21 in ipairs(_0x3:GetPlayers())do
+if _0x21==_0x7 then continue end
+if _0x7.Team and _0x21.Team==_0x7.Team then continue end
 
-    local screenCenter = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
+local _0x22=_0x21.Character
+if _0x22 and _0x22:FindFirstChild("Head")then
+local _0x23=_0x22.Head
+if not _0x11(_0x23)then continue end
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-
-        if plr == player then continue end
-        if player.Team and plr.Team == player.Team then continue end
-
-        local character = plr.Character
-
-        if character and character:FindFirstChild("Head") then
-
-            local head = character.Head
-
-            if not isVisible(head) then continue end
-
-            local screenPos, onScreen = Camera:WorldToScreenPoint(head.Position)
-
-            if onScreen then
-
-                local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestPart = head
-                end
-
-            end
-
-        end
-
-    end
-
-    return closestPart
-
+local _0x24,_0x25=_0x8:WorldToScreenPoint(_0x23.Position)
+if _0x25 then
+local _0x26=(Vector2.new(_0x24.X,_0x24.Y)-_0x20).Magnitude
+if _0x26<_0x19 then
+_0x19=_0x26 _0x18=_0x23
+end
+end
+end
 end
 
-local function updateLock()
-
-    if lockedPart and lockedPart.Parent then
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, lockedPart.Position)
-    else
-        lockedPart = nil
-    end
-
+return _0x18
 end
 
-function module.Start()
-
-    if aimConnection then aimConnection:Disconnect() end
-
-    aimConnection = RunService.RenderStepped:Connect(function()
-
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-
-            if not lockedPart then
-                lockedPart = getClosestHead()
-            end
-
-            if lockedPart then
-                updateLock()
-            end
-
-        else
-            lockedPart = nil
-        end
-
-    end)
-
+local function _0x27()
+if _0x9 and _0x9.Parent then
+_0x8.CFrame=CFrame.new(_0x8.CFrame.Position,_0x9.Position)
+else
+_0x9=nil
+end
 end
 
-function module.Stop()
+function _0xA.Start()
+if _0x10 then _0x10:Disconnect()end
 
-    if aimConnection then
-        aimConnection:Disconnect()
-        aimConnection = nil
-    end
+_0x10=_0x6.RenderStepped:Connect(function()
+if _0x4:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)then
 
-    lockedPart = nil
-
+if not _0x9 then
+_0x9=_0x17()
 end
 
-return module
+if _0x9 then
+_0x27()
+end
+
+else
+_0x9=nil
+end
+end)
+end
+
+function _0xA.Stop()
+if _0x10 then _0x10:Disconnect()_0x10=nil end
+_0x9=nil
+end
+
+return _0xA
