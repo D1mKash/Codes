@@ -1,191 +1,91 @@
-local module = {}
+local _0xA={}local _0x1=game local _0x2=_0x1.GetService local _0x3=_0x2(_0x1,"Players")local _0x4=_0x2(_0x1,"UserInputService")local _0x5=_0x2(_0x1,"VirtualInputManager")local _0x6=_0x2(_0x1,"Workspace")local _0x7=_0x2(_0x1,"RunService")local _0x8=_0x3.LocalPlayer local _0x9=_0x6.CurrentCamera local _0x10=_0x6:WaitForChild("Live")local _0x11=nil local _0x12=nil local _0x13=nil
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-
-local player = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-local LIVE = Workspace:WaitForChild("Live")
-
-local lockedPart = nil
-local lockConnection
-local inputConnection
-
-local function press4()
-    VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.Four,false,game)
-    VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.Four,false,game)
+local function _0x14()
+_0x5:SendKeyEvent(true,Enum.KeyCode.Four,false,_0x1)
+_0x5:SendKeyEvent(false,Enum.KeyCode.Four,false,_0x1)
 end
 
-local function isVisible(part)
-
-    local origin = Camera.CFrame.Position
-    local direction = part.Position - origin
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { player.Character }
-
-    local result = Workspace:Raycast(origin,direction,params)
-
-    return result and result.Instance:IsDescendantOf(part.Parent)
-
+local function _0x15(_0x16)
+local _0x17=_0x9.CFrame.Position local _0x18=_0x16.Position-_0x17
+local _0x19=RaycastParams.new()_0x19.FilterType=Enum.RaycastFilterType.Exclude
+_0x19.FilterDescendantsInstances={_0x8.Character}
+local _0x20=_0x6:Raycast(_0x17,_0x18,_0x19)
+return _0x20 and _0x20.Instance:IsDescendantOf(_0x16.Parent)
 end
 
-local function getClosestHead()
+local function _0x21()
+local _0x22=nil local _0x23=math.huge
+local _0x24=Vector2.new(_0x9.ViewportSize.X/2,_0x9.ViewportSize.Y/2)
 
-    local closestPart = nil
-    local shortestDistance = math.huge
-
-    local screenCenter = Vector2.new(
-        Camera.ViewportSize.X/2,
-        Camera.ViewportSize.Y/2
-    )
-
-    for _,model in pairs(LIVE:GetChildren()) do
-
-        if model:IsA("Model") and model ~= player.Character then
-
-            local plr = Players:FindFirstChild(model.Name)
-
-            if plr and player.Team and plr.Team == player.Team then
-                continue
-            end
-
-            local head = model:FindFirstChild("Head")
-            local blocking = model:FindFirstChild("Blocking")
-
-            if head and blocking and blocking.Value == false then
-
-                local screenPos,onScreen = Camera:WorldToScreenPoint(head.Position)
-
-                if onScreen and isVisible(head) then
-
-                    local distance = (Vector2.new(screenPos.X,screenPos.Y) - screenCenter).Magnitude
-
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestPart = head
-                    end
-
-                end
-
-            end
-
-        end
-
-    end
-
-    return closestPart
-
+for _,_0x25 in pairs(_0x10:GetChildren())do
+if _0x25:IsA("Model")and _0x25~=_0x8.Character then
+local _0x26=_0x3:FindFirstChild(_0x25.Name)
+if _0x26 and _0x8.Team and _0x26.Team==_0x8.Team then continue end
+local _0x27=_0x25:FindFirstChild("Head")
+local _0x28=_0x25:FindFirstChild("Blocking")
+if _0x27 and _0x28 and _0x28.Value==false then
+local _0x29,_0x30=_0x9:WorldToScreenPoint(_0x27.Position)
+if _0x30 and _0x15(_0x27) then
+local _0x31=(Vector2.new(_0x29.X,_0x29.Y)-_0x24).Magnitude
+if _0x31<_0x23 then _0x23=_0x31 _0x22=_0x27 end
+end
+end
+end
+end
+return _0x22
 end
 
-local function startLock()
-
-    if lockConnection then
-        lockConnection:Disconnect()
-    end
-
-    lockConnection = RunService.RenderStepped:Connect(function()
-
-        if lockedPart and lockedPart.Parent then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position,lockedPart.Position)
-        end
-
-    end)
-
+local function _0x32()
+if _0x12 then _0x12:Disconnect()end
+_0x12=_0x7.RenderStepped:Connect(function()
+if _0x11 and _0x11.Parent then
+_0x9.CFrame=CFrame.new(_0x9.CFrame.Position,_0x11.Position)
+end
+end)
 end
 
-local function stopLock()
-
-    if lockConnection then
-        lockConnection:Disconnect()
-        lockConnection = nil
-    end
-
-    lockedPart = nil
-
+local function _0x33()
+if _0x12 then _0x12:Disconnect()_0x12=nil end
+_0x11=nil
 end
 
-local function runCombo()
+local function _0x34()
+_0x11=_0x21()if not _0x11 then return end
+_0x32()_0x14()
+local _0x35=_0x10:FindFirstChild(_0x8.Name)
+if not _0x35 then _0x33()return end
 
-    lockedPart = getClosestHead()
+local _0x36=tick()local _0x37=false
+repeat
+if _0x35:FindFirstChild("MyTodo")then _0x37=true break end
+task.wait()
+until tick()-_0x36>=3
 
-    if not lockedPart then
-        return
-    end
+if not _0x37 then _0x33()return end
 
-    startLock()
+local _0x38=_0x11.Parent
+local _0x39=_0x38 and _0x38:FindFirstChild("Blocking")
 
-    press4()
-
-    local myCharacter = LIVE:FindFirstChild(player.Name)
-
-    if not myCharacter then
-        stopLock()
-        return
-    end
-
-    local startTime = tick()
-    local todoAppeared = false
-
-    repeat
-
-        if myCharacter:FindFirstChild("MyTodo") then
-            todoAppeared = true
-            break
-        end
-
-        task.wait()
-
-    until tick() - startTime >= 3
-
-    if not todoAppeared then
-        stopLock()
-        return
-    end
-
-    local enemyModel = lockedPart.Parent
-    local blocking = enemyModel and enemyModel:FindFirstChild("Blocking")
-
-    if blocking and blocking.Value == false then
-        press4()
-        task.wait(1)
-    end
-
-    stopLock()
-
+if _0x39 and _0x39.Value==false then
+_0x14()task.wait(1)
 end
 
-function module.Start()
-
-    if inputConnection then
-        inputConnection:Disconnect()
-    end
-
-    inputConnection = UserInputService.InputBegan:Connect(function(input,gpe)
-
-        if gpe then return end
-
-        if input.KeyCode == Enum.KeyCode.Z then
-            runCombo()
-        end
-
-    end)
-
+_0x33()
 end
 
-function module.Stop()
-
-    if inputConnection then
-        inputConnection:Disconnect()
-        inputConnection = nil
-    end
-
-    stopLock()
-
+function _0xA.Start()
+if _0x13 then _0x13:Disconnect()end
+_0x13=_0x4.InputBegan:Connect(function(_0x40,_0x41)
+if _0x41 then return end
+if _0x40.KeyCode==Enum.KeyCode.Z then
+_0x34()
+end
+end)
 end
 
-return module
+function _0xA.Stop()
+if _0x13 then _0x13:Disconnect()_0x13=nil end
+_0x33()
+end
+
+return _0xA
