@@ -2,15 +2,15 @@ local module = {}
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local LIVE_FOLDER = workspace:WaitForChild("Live")
 
-local teammate
-local connections = {}
+local running = false
 
 ------------------------------------------------
--- ANIMATION LIST
+-- ANIMATION LIST (PUT FULL LIST)
 ------------------------------------------------
 
 local triggerAnimations = {
@@ -136,81 +136,106 @@ local triggerAnimations = {
 ["rbxassetid://14437148019"]=true,
 ["rbxassetid://14437145085"]=true,
 ["rbxassetid://14436312737"]=true,
+	-- (keep your full list here)
 }
 
 ------------------------------------------------
--- INPUT
+-- PRESS F (HOLD 0.2s)
 ------------------------------------------------
 
-local function pressC()
-	VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.C,false,game)
-	VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.C,false,game)
+local function holdF()
+	VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+	task.wait(0.2)
+	VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
 end
 
 ------------------------------------------------
--- RANGE CHECK
+-- RANGE CHECK (15 STUDS)
 ------------------------------------------------
 
 local function inRange(enemyRoot)
-
 	local char = player.Character
 	if not char then return false end
 
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then return false end
 
-	local distance = (enemyRoot.Position - root.Position).Magnitude
-	return distance <= 20
-
+	return (enemyRoot.Position - root.Position).Magnitude <= 15
 end
 
 ------------------------------------------------
--- HOOK CHARACTER
+-- TRACK MEMORY (NO DUPLICATES)
 ------------------------------------------------
 
-local function hookCharacter(char)
+local triggeredTracks = {} -- [track] = true
 
-	if char.Name == player.Name then return end
-	if teammate and char.Name == teammate.Name then return end
+------------------------------------------------
+-- MAIN SCANNER
+------------------------------------------------
 
-	local humanoid = char:FindFirstChild("Humanoid")
-	local root = char:FindFirstChild("HumanoidRootPart")
+local function scan()
 
-	if not humanoid or not root then return end
+	for _, model in ipairs(LIVE_FOLDER:GetChildren()) do
 
-	local conn
+		if not model:IsA("Model") then continue end
 
-	conn = humanoid.AnimationPlayed:Connect(function(track)
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		local root = model:FindFirstChild("HumanoidRootPart")
 
-		if not track.Animation then return end
+		if not humanoid or not root then continue end
+		if not inRange(root) then continue end
 
-		local id = track.Animation.AnimationId
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if not animator then continue end
 
-		if triggerAnimations[id] and inRange(root) then
-			pressC()
+		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+
+			if not track.Animation then continue end
+
+			local id = track.Animation.AnimationId
+
+			if triggerAnimations[id] then
+
+				-- ONLY trigger at animation start
+				if track.TimePosition < 0.05 then
+
+					-- prevent double trigger on same track
+					if not triggeredTracks[track] then
+						triggeredTracks[track] = true
+						task.spawn(holdF)
+						return -- stop after first valid trigger
+					end
+
+				end
+			end
 		end
-
-	end)
-
-	table.insert(connections,conn)
-
+	end
 end
+
+------------------------------------------------
+-- CLEANUP OLD TRACKS (IMPORTANT)
+------------------------------------------------
+
+RunService.RenderStepped:Connect(function()
+	for track,_ in pairs(triggeredTracks) do
+		if not track.IsPlaying then
+			triggeredTracks[track] = nil
+		end
+	end
+end)
 
 ------------------------------------------------
 -- START
 ------------------------------------------------
 
-function module.Start(team)
+function module.Start()
 
-	teammate = team
+	running = true
 
-	for _,char in ipairs(LIVE_FOLDER:GetChildren()) do
-		hookCharacter(char)
-	end
-
-	LIVE_FOLDER.ChildAdded:Connect(function(char)
-		task.wait(0.2)
-		hookCharacter(char)
+	RunService.RenderStepped:Connect(function()
+		if running then
+			scan()
+		end
 	end)
 
 end
@@ -220,13 +245,7 @@ end
 ------------------------------------------------
 
 function module.Stop()
-
-	for _,c in ipairs(connections) do
-		c:Disconnect()
-	end
-
-	connections = {}
-
+	running = false
 end
 
 return module
