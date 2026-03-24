@@ -160,7 +160,7 @@ local function inRange(enemyRoot)
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then return false end
 
-	return (enemyRoot.Position - root.Position).Magnitude <= 15
+	return (enemyRoot.Position - root.Position).Magnitude <= 18
 end
 
 ------------------------------------------------
