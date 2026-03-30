@@ -137,20 +137,20 @@ local triggerAnimations = {
 ["rbxassetid://14437148019"]=true,
 ["rbxassetid://14437145085"]=true,
 ["rbxassetid://14436312737"]=true,
-    -- (keep the rest of your full list here)
+    -- keep rest...
 }
 
 ------------------------------------------------
--- PRESS F (HOLD 0.2s)
+-- PRESS 2
 ------------------------------------------------
-local function holdF()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-    task.wait(0.2)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+local function holdTwo()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+    task.wait(0.02)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
 end
 
 ------------------------------------------------
--- RANGE CHECK (18 STUDS)
+-- RANGE CHECK
 ------------------------------------------------
 local function inRange(enemyRoot)
     local char = player.Character
@@ -159,13 +159,13 @@ local function inRange(enemyRoot)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
-    return (enemyRoot.Position - root.Position).Magnitude <= 18
+    return (enemyRoot.Position - root.Position).Magnitude <= 13
 end
 
 ------------------------------------------------
--- TRACK MEMORY (NO DUPLICATES)
+-- TRACK MEMORY
 ------------------------------------------------
-local triggeredTracks = {} -- [track] = true
+local triggeredTracks = {}
 
 ------------------------------------------------
 -- MAIN SCANNER
@@ -175,11 +175,13 @@ local function scan()
 
     for _, model in ipairs(LIVE_FOLDER:GetChildren()) do
         if not model:IsA("Model") then continue end
-        if model == myChar or model.Name == player.Name then continue end -- ignore self
+
+        -- 🔥 IGNORE YOURSELF
+        if model == myChar then continue end
+        if model.Name == player.Name then continue end
 
         local humanoid = model:FindFirstChildOfClass("Humanoid")
         local root = model:FindFirstChild("HumanoidRootPart")
-
         if not humanoid or not root then continue end
         if not inRange(root) then continue end
 
@@ -188,13 +190,16 @@ local function scan()
 
         for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
             if not track.Animation then continue end
+
             local id = track.Animation.AnimationId
 
-            if triggerAnimations[id] and track.TimePosition < 0.05 then
-                if not triggeredTracks[track] then
-                    triggeredTracks[track] = true
-                    task.spawn(holdF)
-                    return -- trigger only once per scan
+            if triggerAnimations[id] then
+                if track.TimePosition < 0.05 then
+                    if not triggeredTracks[track] then
+                        triggeredTracks[track] = true
+                        task.spawn(holdTwo)
+                        return
+                    end
                 end
             end
         end
@@ -202,10 +207,10 @@ local function scan()
 end
 
 ------------------------------------------------
--- CLEANUP OLD TRACKS
+-- CLEANUP FUNCTION
 ------------------------------------------------
 local function cleanupTracks()
-    for track, _ in pairs(triggeredTracks) do
+    for track,_ in pairs(triggeredTracks) do
         if not track.IsPlaying then
             triggeredTracks[track] = nil
         end
@@ -225,9 +230,7 @@ function module.Start()
         end
     end)
 
-    cleanupConnection = RunService.RenderStepped:Connect(function()
-        cleanupTracks()
-    end)
+    cleanupConnection = RunService.RenderStepped:Connect(cleanupTracks)
 end
 
 ------------------------------------------------
