@@ -8,8 +8,8 @@ local player = Players.LocalPlayer
 local LIVE_FOLDER = workspace:WaitForChild("Live")
 
 local running = false
-local scanConnection = nil
-local cleanupConnection = nil
+local scanConnection
+local cleanupConnection
 
 ------------------------------------------------
 -- ANIMATION LIST
@@ -137,19 +137,20 @@ local triggerAnimations = {
 ["rbxassetid://14437148019"]=true,
 ["rbxassetid://14437145085"]=true,
 ["rbxassetid://14436312737"]=true,
+    -- (keep the rest of your full list here)
 }
 
 ------------------------------------------------
--- PRESS F
+-- PRESS F (HOLD 0.2s)
 ------------------------------------------------
 local function holdF()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-    task.wait(0.01)
+    task.wait(0.2)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
 end
 
 ------------------------------------------------
--- RANGE CHECK
+-- RANGE CHECK (18 STUDS)
 ------------------------------------------------
 local function inRange(enemyRoot)
     local char = player.Character
@@ -158,28 +159,23 @@ local function inRange(enemyRoot)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
-    return (enemyRoot.Position - root.Position).Magnitude <= 13
+    return (enemyRoot.Position - root.Position).Magnitude <= 18
 end
 
 ------------------------------------------------
--- TRACK MEMORY
+-- TRACK MEMORY (NO DUPLICATES)
 ------------------------------------------------
-local triggeredTracks = {}
+local triggeredTracks = {} -- [track] = true
 
 ------------------------------------------------
 -- MAIN SCANNER
 ------------------------------------------------
 local function scan()
-
     local myChar = player.Character
 
     for _, model in ipairs(LIVE_FOLDER:GetChildren()) do
-
         if not model:IsA("Model") then continue end
-
-        -- ignore yourself
-        if model == myChar then continue end
-        if model.Name == player.Name then continue end
+        if model == myChar or model.Name == player.Name then continue end -- ignore self
 
         local humanoid = model:FindFirstChildOfClass("Humanoid")
         local root = model:FindFirstChild("HumanoidRootPart")
@@ -191,21 +187,14 @@ local function scan()
         if not animator then continue end
 
         for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-
             if not track.Animation then continue end
-
             local id = track.Animation.AnimationId
 
-            if triggerAnimations[id] then
-
-                if track.TimePosition < 0.01 then
-
-                    if not triggeredTracks[track] then
-                        triggeredTracks[track] = true
-                        task.spawn(holdF)
-                        return
-                    end
-
+            if triggerAnimations[id] and track.TimePosition < 0.05 then
+                if not triggeredTracks[track] then
+                    triggeredTracks[track] = true
+                    task.spawn(holdF)
+                    return -- trigger only once per scan
                 end
             end
         end
@@ -213,10 +202,20 @@ local function scan()
 end
 
 ------------------------------------------------
--- START
+-- CLEANUP OLD TRACKS
+------------------------------------------------
+local function cleanupTracks()
+    for track, _ in pairs(triggeredTracks) do
+        if not track.IsPlaying then
+            triggeredTracks[track] = nil
+        end
+    end
+end
+
+------------------------------------------------
+-- START MODULE
 ------------------------------------------------
 function module.Start()
-
     if running then return end
     running = true
 
@@ -227,20 +226,14 @@ function module.Start()
     end)
 
     cleanupConnection = RunService.RenderStepped:Connect(function()
-        for track,_ in pairs(triggeredTracks) do
-            if not track.IsPlaying then
-                triggeredTracks[track] = nil
-            end
-        end
+        cleanupTracks()
     end)
-
 end
 
 ------------------------------------------------
--- STOP
+-- STOP MODULE
 ------------------------------------------------
 function module.Stop()
-
     running = false
 
     if scanConnection then
@@ -254,7 +247,6 @@ function module.Stop()
     end
 
     table.clear(triggeredTracks)
-
 end
 
 return module
