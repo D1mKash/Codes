@@ -24,12 +24,10 @@ local function pressKey(key)
 end
 
 ------------------------------------------------
--- SET TEAMMATE (NEW)
+-- SET TEAMMATE
 ------------------------------------------------
 function module.SetTeammate(input)
-
     if typeof(input) == "Instance" then
-        -- if it's a Player → convert to character model
         if input:IsA("Player") then
             teammateModel = input.Character
         else
@@ -38,7 +36,6 @@ function module.SetTeammate(input)
     else
         teammateModel = nil
     end
-
 end
 
 ------------------------------------------------
@@ -67,52 +64,57 @@ local function startBlockingCheck()
         ------------------------------------------------
 
         local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
-        local myBlocking = myChar and myChar:FindFirstChild("Blocking")
+        local myBlocking = myChar and myChar:FindFirstChild("Blocking", true)
 
         if myBlocking and myBlocking.Value == true then
             return
         end
 
         ------------------------------------------------
-        -- ENEMY SCAN
+        -- ENEMY SCAN (FIXED)
         ------------------------------------------------
 
         for _,obj in ipairs(LIVE_FOLDER:GetChildren()) do
 
-            if obj ~= char and obj ~= teammateModel then
+            if not obj:IsA("Model") then continue end
 
-                local enemyRoot = obj:FindFirstChild("HumanoidRootPart")
-                local blocking = obj:FindFirstChild("Blocking")
+            -- ❌ skip yourself
+            if obj.Name == player.Name then continue end
 
-                if enemyRoot and blocking then
+            -- ❌ skip teammate
+            if teammateModel and obj == teammateModel then continue end
 
-                    local distance = (enemyRoot.Position - root.Position).Magnitude
+            local enemyRoot = obj:FindFirstChild("HumanoidRootPart")
+            local blocking = obj:FindFirstChild("Blocking", true) -- 🔥 deep search
 
-                    if distance >= 18 and distance <= 40 then
+            if enemyRoot and blocking then
 
-                        if blocking.Value == false then
+                local distance = (enemyRoot.Position - root.Position).Magnitude
 
-                            blockCooldown = true
+                if distance >= 18 and distance <= 40 then
 
-                            pressKey(Enum.KeyCode.One)
+                    if blocking.Value == false then
 
-                            task.spawn(function()
+                        blockCooldown = true
 
-                                repeat task.wait()
-                                until blocking.Value == true or not obj.Parent
+                        pressKey(Enum.KeyCode.One)
 
-                                task.wait(1)
+                        task.spawn(function()
 
-                                blockCooldown = false
+                            repeat task.wait()
+                            until blocking.Value == true or not obj.Parent
 
-                            end)
+                            task.wait(1)
 
-                            return
-                        end
+                            blockCooldown = false
 
+                        end)
+
+                        return
                     end
 
                 end
+
             end
         end
 
