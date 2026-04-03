@@ -7,152 +7,154 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 local LIVE_FOLDER = workspace:WaitForChild("Live")
 
-local blockingConnection
+local connection
 local running = false
 
-local blockCooldown = false
-local scanTimer = 0
-
 local teammateModel = nil
+local currentTarget = nil
+local cooldown = false
 
 ------------------------------------------------
--- PRESS KEY
+-- INPUT
 ------------------------------------------------
-local function pressKey(key)
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
+
+local function pressOne()
+	VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.One, false, game)
+	VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.One, false, game)
 end
 
 ------------------------------------------------
--- SET TEAMMATE
+-- GET MY BLOCKING
 ------------------------------------------------
-function module.SetTeammate(input)
-    if typeof(input) == "Instance" then
-        if input:IsA("Player") then
-            teammateModel = input.Character
-        else
-            teammateModel = input
-        end
-    else
-        teammateModel = nil
-    end
+
+local function isMyBlocking()
+	local myModel = LIVE_FOLDER:FindFirstChild(player.Name)
+	if not myModel then return false end
+
+	local blocking = myModel:FindFirstChild("Blocking")
+	return blocking and blocking.Value == true
 end
 
 ------------------------------------------------
--- MAIN LOGIC
+-- VALID TARGET CHECK
 ------------------------------------------------
-local function startBlockingCheck()
 
-    blockingConnection = RunService.Heartbeat:Connect(function(dt)
+local function isValidTarget(model, myRoot)
 
-        if not running then return end
+	if not model or not model.Parent then return false end
+	if model.Name == player.Name then return false end
+	if model == player.Character then return false end
+	if teammateModel and model == teammateModel then return false end
 
-        scanTimer += dt
-        if scanTimer < 0.1 then return end
-        scanTimer = 0
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local blocking = model:FindFirstChild("Blocking")
 
-        if blockCooldown then return end
+	if not root or not blocking then return false end
+	if blocking.Value == true then return false end
 
-        local char = player.Character
-        if not char then return end
+	local dist = (root.Position - myRoot.Position).Magnitude
+	return dist >= 18 and dist <= 40
+end
 
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+------------------------------------------------
+-- FIND SINGLE TARGET
+------------------------------------------------
 
-        ------------------------------------------------
-        -- CHECK IF YOU ARE BLOCKING
-        ------------------------------------------------
+local function findTarget()
 
-        local myChar = LIVE_FOLDER:FindFirstChild(player.Name)
-        local myBlocking = myChar and myChar:FindFirstChild("Blocking", true)
+	local char = player.Character
+	if not char then return nil end
 
-        if myBlocking and myBlocking.Value == true then
-            return
-        end
+	local myRoot = char:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return nil end
 
-        ------------------------------------------------
-        -- ENEMY SCAN (FIXED)
-        ------------------------------------------------
+	local closest = nil
+	local closestDist = math.huge
 
-        for _,obj in ipairs(LIVE_FOLDER:GetChildren()) do
+	for _, model in ipairs(LIVE_FOLDER:GetChildren()) do
 
-            if not obj:IsA("Model") then continue end
+		if model:IsA("Model") and isValidTarget(model, myRoot) then
 
-            -- ❌ skip yourself
-            if obj.Name == player.Name then continue end
+			local root = model:FindFirstChild("HumanoidRootPart")
+			local dist = (root.Position - myRoot.Position).Magnitude
 
-            -- ❌ skip teammate
-            if teammateModel and obj == teammateModel then continue end
+			if dist < closestDist then
+				closestDist = dist
+				closest = model
+			end
 
-            local enemyRoot = obj:FindFirstChild("HumanoidRootPart")
-            local blocking = obj:FindFirstChild("Blocking", true) -- 🔥 deep search
+		end
+	end
 
-            if enemyRoot and blocking then
+	return closest
+end
 
-                local distance = (enemyRoot.Position - root.Position).Magnitude
+------------------------------------------------
+-- MAIN LOOP
+------------------------------------------------
 
-                if distance >= 18 and distance <= 40 then
+local function step()
 
-                    if blocking.Value == false then
+	local char = player.Character
+	if not char then return end
 
-                        blockCooldown = true
+	local myRoot = char:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return end
 
-                        pressKey(Enum.KeyCode.One)
+	-- if current target invalid → find new one
+	if not currentTarget or not isValidTarget(currentTarget, myRoot) then
+		currentTarget = findTarget()
+	end
 
-                        task.spawn(function()
+	if not currentTarget then return end
 
-                            repeat task.wait()
-                            until blocking.Value == true or not obj.Parent
+	-- wait if YOU are blocking
+	if isMyBlocking() then return end
 
-                            task.wait(1)
+	-- cooldown control
+	if cooldown then return end
+	cooldown = true
 
-                            blockCooldown = false
+	pressOne()
 
-                        end)
-
-                        return
-                    end
-
-                end
-
-            end
-        end
-
-    end)
-
+	task.delay(1, function()
+		cooldown = false
+	end)
 end
 
 ------------------------------------------------
 -- START
 ------------------------------------------------
-function module.Start(teammateInput)
 
-    if running then return end
-    running = true
+function module.Start(teammate)
 
-    if teammateInput then
-        module.SetTeammate(teammateInput)
-    end
+	teammateModel = teammate
+	running = true
 
-    startBlockingCheck()
+	if connection then connection:Disconnect() end
+
+	connection = RunService.Heartbeat:Connect(function()
+		if running then
+			step()
+		end
+	end)
 
 end
 
 ------------------------------------------------
 -- STOP
 ------------------------------------------------
+
 function module.Stop()
 
-    running = false
+	running = false
+	currentTarget = nil
+	cooldown = false
 
-    if blockingConnection then
-        blockingConnection:Disconnect()
-        blockingConnection = nil
-    end
-
-    blockCooldown = false
-    scanTimer = 0
-    teammateModel = nil
+	if connection then
+		connection:Disconnect()
+		connection = nil
+	end
 
 end
 
