@@ -53,7 +53,7 @@ local function isValidTarget(model, myRoot)
 	if blocking.Value == true then return false end
 
 	local dist = (root.Position - myRoot.Position).Magnitude
-	return dist >= 15 and dist <= 35
+	return dist >= 15 and dist <= 40
 end
 
 ------------------------------------------------
