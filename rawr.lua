@@ -11,6 +11,9 @@ local ANIM_ACTIONS = {
 	["1461157246"] = Enum.KeyCode.Four,
 }
 
+local connections = {}
+local running = false
+
 local function pressKey(key)
 	VirtualInputManager:SendKeyEvent(true, key, false, game)
 	task.wait(0.01)
@@ -20,7 +23,8 @@ end
 local function hookAnimator(animator)
 	if not animator then return end
 	
-	animator.AnimationPlayed:Connect(function(track)
+	local conn = animator.AnimationPlayed:Connect(function(track)
+		if not running then return end
 		if not track or not track.Animation then return end
 		
 		local animId = track.Animation.AnimationId
@@ -28,11 +32,14 @@ local function hookAnimator(animator)
 		
 		for id, key in pairs(ANIM_ACTIONS) do
 			if string.find(animId, id) then
+				print("🎯 Animation detected:", id, "→ pressing", key.Name)
 				pressKey(key)
 				break
 			end
 		end
 	end)
+	
+	table.insert(connections, conn)
 end
 
 local function onCharacter(char)
@@ -44,20 +51,28 @@ local function onCharacter(char)
 end
 
 function Module.Start()
+	if running then return end
+	running = true
+	
 	if player.Character then
 		onCharacter(player.Character)
 	end
 	
-	player.CharacterAdded:Connect(onCharacter)
+	table.insert(connections, player.CharacterAdded:Connect(onCharacter))
 	
 end
 
-------------------------------------------------
--- STOP
-------------------------------------------------
-
-function module.Stop()
+function Module.Stop()
 	running = false
+	
+	for _, conn in ipairs(connections) do
+		if conn then
+			conn:Disconnect()
+		end
+	end
+	
+	table.clear(connections)
+	
 end
 
 return Module
