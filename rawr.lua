@@ -52,4 +52,12 @@ function Module.Start()
 	
 end
 
+------------------------------------------------
+-- STOP
+------------------------------------------------
+
+function module.Stop()
+	running = false
+end
+
 return Module
