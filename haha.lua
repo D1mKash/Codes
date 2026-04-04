@@ -6,6 +6,7 @@ local U=game:GetService("UserInputService")
 
 local p=P.LocalPlayer
 
+-- animation mappings
 local A={
 	["1461157246"]={
 		{key=Enum.KeyCode.Three,delay=0},
@@ -13,7 +14,7 @@ local A={
 	}
 }
 
-local C={}
+local C={} -- connections
 local R=false
 
 local function k(K)
@@ -22,12 +23,12 @@ local function k(K)
 	V:SendKeyEvent(false,K,false,game)
 end
 
-local function h(a)
-	if not a then return end
-	local c=a.AnimationPlayed:Connect(function(t)
+local function h(anim)
+	if not anim then return end
+	local c=anim.AnimationPlayed:Connect(function(track)
 		if not R then return end
-		if not t or not t.Animation then return end
-		local i=t.Animation.AnimationId
+		if not track or not track.Animation then return end
+		local i=track.Animation.AnimationId
 		if not i or i=="" then return end
 		for id,actions in pairs(A) do
 			if string.find(i,id) then
@@ -43,9 +44,9 @@ local function h(a)
 end
 
 local function j()
-	local c=U.InputBegan:Connect(function(i,g)
-		if not R or g then return end
-		if i.KeyCode==Enum.KeyCode.Two then
+	local c=U.InputBegan:Connect(function(input,gp)
+		if not R or gp then return end
+		if input.KeyCode==Enum.KeyCode.Two then
 			task.spawn(function()
 				task.wait(0.1)
 				k(Enum.KeyCode.One)
@@ -56,11 +57,11 @@ local function j()
 	table.insert(C,c)
 end
 
-local function o(c)
-	local h=c:WaitForChild("Humanoid",5)
+local function o(char)
+	local h=char:WaitForChild("Humanoid",5)
 	if not h then return end
 	local a=h:FindFirstChildOfClass("Animator") or h:WaitForChild("Animator",5)
-	h(a)
+	hookAnimator(a)
 end
 
 function M.Start()
