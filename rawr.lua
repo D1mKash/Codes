@@ -1,77 +1,74 @@
-local Module = {}
+local M={}
 
-local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+local P=game:GetService("Players")
+local V=game:GetService("VirtualInputManager")
 
-local player = Players.LocalPlayer
+local p=P.LocalPlayer
 
--- animation mappings
-local ANIM_ACTIONS = {
-	["1461136875"] = Enum.KeyCode.Three,
-	["1461157246"] = Enum.KeyCode.Four,
+local A={
+	["1461136875"]=Enum.KeyCode.Three,
+	["1461157246"]=Enum.KeyCode.Four
 }
 
-local connections = {}
-local running = false
+local C={}
+local R=false
 
-local function pressKey(key)
-	VirtualInputManager:SendKeyEvent(true, key, false, game)
+local function k(K)
+	V:SendKeyEvent(true,K,false,game)
 	task.wait(0.01)
-	VirtualInputManager:SendKeyEvent(false, key, false, game)
+	V:SendKeyEvent(false,K,false,game)
 end
 
-local function hookAnimator(animator)
-	if not animator then return end
+local function h(a)
+	if not a then return end
 	
-	local conn = animator.AnimationPlayed:Connect(function(track)
-		if not running then return end
-		if not track or not track.Animation then return end
+	local c=a.AnimationPlayed:Connect(function(t)
+		if not R then return end
+		if not t or not t.Animation then return end
 		
-		local animId = track.Animation.AnimationId
-		if not animId or animId == "" then return end
+		local i=t.Animation.AnimationId
+		if not i or i=="" then return end
 		
-		for id, key in pairs(ANIM_ACTIONS) do
-			if string.find(animId, id) then
-				pressKey(key)
+		for id,key in pairs(A) do
+			if string.find(i,id) then
+				k(key)
 				break
 			end
 		end
 	end)
 	
-	table.insert(connections, conn)
+	table.insert(C,c)
 end
 
-local function onCharacter(char)
-	local humanoid = char:WaitForChild("Humanoid", 5)
-	if not humanoid then return end
+local function o(c)
+	local h=c:WaitForChild("Humanoid",5)
+	if not h then return end
 	
-	local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid:WaitForChild("Animator", 5)
-	hookAnimator(animator)
+	local a=h:FindFirstChildOfClass("Animator") or h:WaitForChild("Animator",5)
+	h(a)
 end
 
-function Module.Start()
-	if running then return end
-	running = true
+function M.Start()
+	if R then return end
+	R=true
 	
-	if player.Character then
-		onCharacter(player.Character)
+	if p.Character then
+		o(p.Character)
 	end
 	
-	table.insert(connections, player.CharacterAdded:Connect(onCharacter))
-	
+	table.insert(C,p.CharacterAdded:Connect(o))
 end
 
-function Module.Stop()
-	running = false
+function M.Stop()
+	R=false
 	
-	for _, conn in ipairs(connections) do
-		if conn then
-			conn:Disconnect()
+	for _,c in ipairs(C) do
+		if c then
+			c:Disconnect()
 		end
 	end
 	
-	table.clear(connections)
-	
+	table.clear(C)
 end
 
-return Module
+return M
