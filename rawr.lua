@@ -32,7 +32,6 @@ local function hookAnimator(animator)
 		
 		for id, key in pairs(ANIM_ACTIONS) do
 			if string.find(animId, id) then
-				print("🎯 Animation detected:", id, "→ pressing", key.Name)
 				pressKey(key)
 				break
 			end
