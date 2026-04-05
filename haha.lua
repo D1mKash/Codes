@@ -1,6 +1,6 @@
 local m={}local p=game:GetService("Players")local v=game:GetService("VirtualInputManager")local u=game:GetService("UserInputService")local pl=p.LocalPlayer
 local a={
-	["1461157246"]={{key=Enum.KeyCode.Three,delay=0.15}},
+	["1461157246"]={{key=Enum.KeyCode.Three,delay=0.12}},
 	["1461252313"]={{key=Enum.KeyCode.Q,delay=1.7}},
     ["1461127258"]={{key=Enum.KeyCode.Three,delay=0.01},{key=Enum.KeyCode.Q,delay=0.01},{key=Enum.KeyCode.Three,delay=0.55}}
 }
