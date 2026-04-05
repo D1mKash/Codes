@@ -1,8 +1,8 @@
 local m={}local p=game:GetService("Players")local v=game:GetService("VirtualInputManager")local u=game:GetService("UserInputService")local pl=p.LocalPlayer
 local a={
-	["1461157246"]={{key=Enum.KeyCode.Three,delay=0.07},{key=Enum.KeyCode.Q,delay=0.001}},
-	["1461252313"]={{key=Enum.KeyCode.Three,delay=0.075},{key=Enum.KeyCode.Q,delay=0.001}},
-    ["1461127258"]={{key=Enum.KeyCode.Three,delay=0.077},{key=Enum.KeyCode.Q,delay=0.001}}
+	["1461157246"]={{key=Enum.KeyCode.Three,delay=0.07},{key=Enum.KeyCode.Q,delay=0.1}},
+	["1461252313"]={{key=Enum.KeyCode.Three,delay=0.075},{key=Enum.KeyCode.Q,delay=0.1}},
+    ["1461127258"]={{key=Enum.KeyCode.Three,delay=0.077},{key=Enum.KeyCode.Q,delay=0.1}}
 }
 local c={}local r=false
 local function k(kc)pcall(function()v:SendKeyEvent(true,kc,false,game)task.wait(0.01)v:SendKeyEvent(false,kc,false,game)end)end
