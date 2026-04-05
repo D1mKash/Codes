@@ -2,7 +2,7 @@ local m={}local p=game:GetService("Players")local v=game:GetService("VirtualInpu
 local a={
 	["1461157246"]={{key=Enum.KeyCode.Three,delay=0.07}},
 	["1461252313"]={{key=Enum.KeyCode.Three,delay=0.07}},
-    ["1461127258"]={{key=Enum.KeyCode.Three,delay=0.01},{key=Enum.KeyCode.Q,delay=0.01},{key=Enum.KeyCode.Three,delay=0.5}}
+    ["1461127258"]={{key=Enum.KeyCode.Three,delay=0.01},{key=Enum.KeyCode.Q,delay=0.01},{key=Enum.KeyCode.Three,delay=0.55}}
 }
 local c={}local r=false
 local function k(kc)pcall(function()v:SendKeyEvent(true,kc,false,game)task.wait(0.01)v:SendKeyEvent(false,kc,false,game)end)end
