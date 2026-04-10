@@ -9,56 +9,60 @@ local player = Players.LocalPlayer
 local thrownFolder = workspace:WaitForChild("Thrown")
 local liveFolder = workspace:WaitForChild("Live")
 
-local DETECTION_RADIUS = 7
-
 local enabled = false
 local connection
 
--- Left click
+-- Click spam (reliable)
 local function leftClick()
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    task.wait()
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    for i = 1, 3 do
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.01)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
 end
 
--- Get player from character model
+-- Get player from character
 local function getPlayerFromCharacter(model)
     return Players:GetPlayerFromCharacter(model)
 end
 
--- Check nearby characters (EXCLUDES YOU + TEAMMATES)
-local function checkNearby(grabBall)
-    if not grabBall or not grabBall:IsDescendantOf(workspace) then return end
-
-    local ballPos = grabBall:IsA("Model") 
-        and grabBall:GetPivot().Position 
-        or grabBall.Position
+-- Handle GrabBall touches
+local function trackGrabBall(grabBall)
+    if not grabBall then return end
 
     local myCharacter = player.Character
 
-    for _, model in pairs(liveFolder:GetChildren()) do
-        if model:IsA("Model") and model ~= myCharacter then
-            
-            local targetPlayer = getPlayerFromCharacter(model)
+    local touchConnection
+    touchConnection = grabBall.Touched:Connect(function(hit)
+        if not enabled then return end
 
-            -- skip teammates
-            if targetPlayer and targetPlayer.Team == player.Team then
-                continue
-            end
+        local model = hit:FindFirstAncestorOfClass("Model")
+        if not model then return end
 
-            local hrp = model:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local distance = (hrp.Position - ballPos).Magnitude
-                if distance <= DETECTION_RADIUS then
-                    leftClick()
-                    return
-                end
-            end
+        -- must be inside Live folder
+        if model.Parent ~= liveFolder then return end
+
+        -- skip yourself
+        if model == myCharacter then return end
+
+        local targetPlayer = getPlayerFromCharacter(model)
+
+        -- skip teammates
+        if targetPlayer and targetPlayer.Team == player.Team then return end
+
+        -- VALID TARGET → CLICK
+        leftClick()
+    end)
+
+    -- auto cleanup after short time
+    task.delay(2, function()
+        if touchConnection then
+            touchConnection:Disconnect()
         end
-    end
+    end)
 end
 
--- When pressing 3
+-- Key detection
 local function onInput(input, gameProcessed)
     if gameProcessed or not enabled then return end
 
@@ -66,17 +70,12 @@ local function onInput(input, gameProcessed)
         local grabBall = thrownFolder:WaitForChild("GrabBall", 1)
 
         if grabBall then
-            local startTime = tick()
-
-            while enabled and grabBall and grabBall.Parent and tick() - startTime < 2 do
-                checkNearby(grabBall)
-                task.wait(0.01)
-            end
+            trackGrabBall(grabBall)
         end
     end
 end
 
--- Internal enable/disable
+-- Enable / Disable
 function GrabBallModule:Enable()
     if enabled then return end
     enabled = true
@@ -85,13 +84,14 @@ end
 
 function GrabBallModule:Disable()
     enabled = false
+
     if connection then
         connection:Disconnect()
         connection = nil
     end
 end
 
--- Your toggle compatibility
+-- For your toggle
 function GrabBallModule.Start()
     GrabBallModule:Enable()
 end
