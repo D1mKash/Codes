@@ -21,7 +21,12 @@ local function leftClick()
     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 end
 
--- Check nearby characters
+-- Get player from character model
+local function getPlayerFromCharacter(model)
+    return Players:GetPlayerFromCharacter(model)
+end
+
+-- Check nearby characters (EXCLUDES YOU + TEAMMATES)
 local function checkNearby(grabBall)
     if not grabBall or not grabBall:IsDescendantOf(workspace) then return end
 
@@ -29,10 +34,18 @@ local function checkNearby(grabBall)
         and grabBall:GetPivot().Position 
         or grabBall.Position
 
-    local character = player.Character
+    local myCharacter = player.Character
 
     for _, model in pairs(liveFolder:GetChildren()) do
-        if model:IsA("Model") and model ~= character then
+        if model:IsA("Model") and model ~= myCharacter then
+            
+            local targetPlayer = getPlayerFromCharacter(model)
+
+            -- ❌ skip teammates
+            if targetPlayer and targetPlayer.Team == player.Team then
+                continue
+            end
+
             local hrp = model:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local distance = (hrp.Position - ballPos).Magnitude
@@ -45,7 +58,7 @@ local function checkNearby(grabBall)
     end
 end
 
--- Main logic when pressing 3
+-- When pressing 3
 local function onInput(input, gameProcessed)
     if gameProcessed or not enabled then return end
 
@@ -63,22 +76,28 @@ local function onInput(input, gameProcessed)
     end
 end
 
--- Enable
+-- Internal enable/disable
 function GrabBallModule:Enable()
     if enabled then return end
     enabled = true
-
     connection = UserInputService.InputBegan:Connect(onInput)
 end
 
--- Disable
 function GrabBallModule:Disable()
     enabled = false
-
     if connection then
         connection:Disconnect()
         connection = nil
     end
+end
+
+-- Your toggle compatibility
+function GrabBallModule.Start()
+    GrabBallModule:Enable()
+end
+
+function GrabBallModule.Stop()
+    GrabBallModule:Disable()
 end
 
 return GrabBallModule
