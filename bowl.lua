@@ -9,7 +9,7 @@ local player = Players.LocalPlayer
 local thrownFolder = workspace:WaitForChild("Thrown")
 local liveFolder = workspace:WaitForChild("Live")
 
-local DETECTION_RADIUS = 10
+local DETECTION_RADIUS = 7
 
 local enabled = false
 local connection
@@ -41,7 +41,7 @@ local function checkNearby(grabBall)
             
             local targetPlayer = getPlayerFromCharacter(model)
 
-            -- ❌ skip teammates
+            -- skip teammates
             if targetPlayer and targetPlayer.Team == player.Team then
                 continue
             end
