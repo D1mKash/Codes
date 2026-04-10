@@ -21,6 +21,12 @@ local function leftClick()
     end
 end
 
+local function pressG()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+    task.wait()
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+end
+
 -- Get player from character
 local function getPlayerFromCharacter(model)
     return Players:GetPlayerFromCharacter(model)
@@ -66,12 +72,22 @@ end
 local function onInput(input, gameProcessed)
     if gameProcessed or not enabled then return end
 
+    -- Press 3 → track GrabBall
     if input.KeyCode == Enum.KeyCode.Three then
         local grabBall = thrownFolder:WaitForChild("GrabBall", 1)
 
         if grabBall then
             trackGrabBall(grabBall)
         end
+    end
+
+    -- Press 2 → press G after 0.01s
+    if input.KeyCode == Enum.KeyCode.Two then
+        task.delay(0.01, function()
+            if enabled then
+                pressG()
+            end
+        end)
     end
 end
 
