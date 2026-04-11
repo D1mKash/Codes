@@ -14,7 +14,7 @@ local connection
 
 -- Click spam (reliable)
 local function leftClick()
-    for i = 1, 2 do
+    for i = 1, 3 do
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         task.wait(0.01)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -83,6 +83,9 @@ local function onInput(input, gameProcessed)
 
     -- Press 2 → press G after 0.01s
     if input.KeyCode == Enum.KeyCode.Two then
+    local charge = player:FindFirstChild("Charge")
+
+    if charge and charge.Value >= 320 then
         task.delay(0.01, function()
             if enabled then
                 pressG()
@@ -116,12 +119,4 @@ function GrabBallModule.Stop()
     GrabBallModule:Disable()
 end
 
-return GrabBallModule" add on to this If Players.Me.Charge.Value = 320 or more then enable this "-- Press 2 → press G after 0.01s
-    if input.KeyCode == Enum.KeyCode.Two then
-        task.delay(0.01, function()
-            if enabled then
-                pressG()
-            end
-        end)
-    end
-end
+return GrabBallModule
