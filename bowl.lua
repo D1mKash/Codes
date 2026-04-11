@@ -9,10 +9,6 @@ local player = Players.LocalPlayer
 local thrownFolder = workspace:WaitForChild("Thrown")
 local liveFolder = workspace:WaitForChild("Live")
 
--- ✅ Safe references for Charge system
-local me = Players:WaitForChild("Me")
-local charge = me:WaitForChild("Charge")
-
 local enabled = false
 local connection
 
@@ -25,10 +21,9 @@ local function leftClick()
     end
 end
 
--- Press G
 local function pressG()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
-    task.wait(0.01)
+    task.wait()
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
 end
 
@@ -65,7 +60,7 @@ local function trackGrabBall(grabBall)
         leftClick()
     end)
 
-    -- auto cleanup
+    -- auto cleanup after short time
     task.delay(2, function()
         if touchConnection then
             touchConnection:Disconnect()
@@ -86,11 +81,12 @@ local function onInput(input, gameProcessed)
         end
     end
 
-    -- Press 2 → press G after 0.01s ONLY if Charge >= 320
+    -- Press 2 → press G after 0.01s (ONLY if Charge >= 320)
     if input.KeyCode == Enum.KeyCode.Two then
+        local charge = player:FindFirstChild("Charge")
+
         if charge and charge.Value >= 320 then
-            task.spawn(function()
-                task.wait(0.01)
+            task.delay(0.01, function()
                 if enabled then
                     pressG()
                 end
@@ -115,7 +111,7 @@ function GrabBallModule:Disable()
     end
 end
 
--- Toggle support
+-- For your toggle
 function GrabBallModule.Start()
     GrabBallModule:Enable()
 end
