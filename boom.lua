@@ -6,20 +6,22 @@ local VIM = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 local running = false
-local connection
+local animator
 
--- 🔥 animations to listen for
+-- animations to detect
 local ANIMATIONS = {
-	"1461157246",
-	-- add more here:
-	-- "1234567890",
+	"1470495207",
+	"1461127258",
 }
 
--- 🔥 selected key (controlled by dropdown)
+-- dropdown-controlled key
 local selectedKey = Enum.KeyCode.Three
 
+-- prevent duplicate spam
+local active = {}
+
 ------------------------------------------------
--- SET KEY (FROM UI)
+-- SET KEY
 ------------------------------------------------
 
 function Module.SetKey(key)
@@ -27,7 +29,7 @@ function Module.SetKey(key)
 end
 
 ------------------------------------------------
--- INPUT
+-- PRESS
 ------------------------------------------------
 
 local function press(key)
@@ -37,22 +39,54 @@ local function press(key)
 end
 
 ------------------------------------------------
--- HOOK
+-- SCAN
 ------------------------------------------------
 
-local function hook(animator)
+local function scan()
 
-	connection = animator.AnimationPlayed:Connect(function(track)
-		if not running then return end
-		if not track or not track.Animation then return end
+	if not animator then return end
 
-		local id = track.Animation.AnimationId
+	local current = {}
 
-		for _, animId in ipairs(ANIMATIONS) do
-			if string.find(id, animId) then
-				press(selectedKey)
-				break
+	for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+
+		if track and track.Animation then
+
+			local id = track.Animation.AnimationId
+			current[id] = true
+
+			for _, animId in ipairs(ANIMATIONS) do
+				if string.find(id, animId) then
+
+					-- only trigger once per play
+					if not active[id] then
+						active[id] = true
+						press(selectedKey)
+					end
+
+					break
+				end
 			end
+		end
+	end
+
+	-- cleanup ended animations
+	for id in pairs(active) do
+		if not current[id] then
+			active[id] = nil
+		end
+	end
+end
+
+------------------------------------------------
+-- LOOP
+------------------------------------------------
+
+local function startLoop()
+	task.spawn(function()
+		while running do
+			task.wait(0.05)
+			scan()
 		end
 	end)
 end
@@ -63,8 +97,8 @@ end
 
 local function setup(char)
 	local hum = char:WaitForChild("Humanoid")
-	local animator = hum:WaitForChild("Animator")
-	hook(animator)
+	animator = hum:WaitForChild("Animator")
+	table.clear(active)
 end
 
 ------------------------------------------------
@@ -80,15 +114,14 @@ function Module.Start()
 	end
 
 	player.CharacterAdded:Connect(setup)
+
+	startLoop()
 end
 
 function Module.Stop()
 	running = false
-
-	if connection then
-		connection:Disconnect()
-		connection = nil
-	end
+	animator = nil
+	table.clear(active)
 end
 
 return Module
