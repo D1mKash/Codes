@@ -22,9 +22,9 @@ local function leftClick()
 end
 
 local function pressG()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.2, false, game)
     task.wait()
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.2, false, game)
 end
 
 -- Get player from character
@@ -81,8 +81,8 @@ local function onInput(input, gameProcessed)
         end
     end
 
-    -- Press 2 → press G after 0.01s
-    if input.KeyCode == Enum.KeyCode.Two then
+    -- Press G → press 2 after 0.01s
+    if input.KeyCode == Enum.KeyCode.G then
         task.delay(0.01, function()
             if enabled then
                 pressG()
