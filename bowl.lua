@@ -83,9 +83,6 @@ local function onInput(input, gameProcessed)
 
     -- Press 2 → press G after 0.01s
     if input.KeyCode == Enum.KeyCode.Two then
-    local charge = player:FindFirstChild("Charge")
-
-    if charge and charge.Value >= 320 then
         task.delay(0.01, function()
             if enabled then
                 pressG()
