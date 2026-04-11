@@ -23,7 +23,7 @@ end
 
 local function pressTwo()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-    task.wait()
+    task.wait(0.01)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
 end
 
@@ -81,14 +81,13 @@ local function onInput(input, gameProcessed)
         end
     end
 
-    -- Press G → press 2 after 0.01s
-    if input.KeyCode == Enum.KeyCode.G then
-        task.delay(0.01, function()
-            if enabled then
-                pressTwo()
-            end
-        end)
-    end
+-- Press G → press 2 after 0.01s
+if input.KeyCode == Enum.KeyCode.G then
+    task.delay(0.01, function()
+        if enabled then
+            pressTwo()
+        end
+    end)
 end
 
 -- Enable / Disable
