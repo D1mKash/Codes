@@ -8,19 +8,23 @@ local player = Players.LocalPlayer
 local running = false
 local connection
 
--- 🔥 just add animations here
+-- 🔥 animations to listen for
 local ANIMATIONS = {
-	["1461157246"] = {
-		Enum.KeyCode.Three,
-		Enum.KeyCode.Q
-	},
-
-	-- example:
-	-- ["1234567890"] = {
-	--     Enum.KeyCode.One,
-	--     Enum.KeyCode.E
-	-- }
+	"1461157246",
+	-- add more here:
+	-- "1234567890",
 }
+
+-- 🔥 selected key (controlled by dropdown)
+local selectedKey = Enum.KeyCode.Three
+
+------------------------------------------------
+-- SET KEY (FROM UI)
+------------------------------------------------
+
+function Module.SetKey(key)
+	selectedKey = key
+end
 
 ------------------------------------------------
 -- INPUT
@@ -44,13 +48,9 @@ local function hook(animator)
 
 		local id = track.Animation.AnimationId
 
-		for animId, keys in pairs(ANIMATIONS) do
+		for _, animId in ipairs(ANIMATIONS) do
 			if string.find(id, animId) then
-
-				for _, key in ipairs(keys) do
-					press(key)
-				end
-
+				press(selectedKey)
 				break
 			end
 		end
