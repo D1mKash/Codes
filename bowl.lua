@@ -83,7 +83,7 @@ local function onInput(input, gameProcessed)
 
     -- Press 2 → press G after 0.01s
     if input.KeyCode == Enum.KeyCode.Two then
-        task.delay(0.01, function()
+        task.delay(0.05, function()
             if enabled then
                 pressG()
             end
