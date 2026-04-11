@@ -14,7 +14,7 @@ local connection
 
 -- Click spam (reliable)
 local function leftClick()
-    for i = 1, 3 do
+    for i = 1, 2 do
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         task.wait(0.01)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
