@@ -68,7 +68,7 @@ local function smoothFollow(targetModel)
 
 	local start = os.clock()
 
-	while running and os.clock() - start < 0.5 do
+	while running and os.clock() - start < 0.76 do
 		if not myRoot or not targetRoot then return end
 
 		local pos = targetRoot.Position + Vector3.new(0, 5, 0)
