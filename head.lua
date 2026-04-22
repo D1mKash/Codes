@@ -4,6 +4,7 @@ local P = game:GetService("Players")
 local R = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local VIM = game:GetService("VirtualInputManager") -- added
 
 local p = P.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
@@ -14,6 +15,26 @@ local s = "D"
 local v0 = 0
 local d
 local running = false
+
+------------------------------------------------
+-- INPUT COMBO (ADDED)
+------------------------------------------------
+
+local function pressKey(key)
+	pcall(function()
+		VIM:SendKeyEvent(true, key, false, game)
+		task.wait(0.01)
+		VIM:SendKeyEvent(false, key, false, game)
+	end)
+end
+
+local function comboAction()
+	pressKey(Enum.KeyCode.Q)
+	task.wait(0.05)
+	pressKey(Enum.KeyCode.Space)
+	task.wait(0.05)
+	pressKey(Enum.KeyCode.Space)
+end
 
 ------------------------------------------------
 -- STATE CHECKS
@@ -177,7 +198,6 @@ local function hk(char)
 
 		if id == "rbxassetid://1461137417" or id == "rbxassetid://1470454728" then
 
-			-- DELAYED FOLLOW (0.2s after animation)
 			task.delay(0.2, function()
 				local target = getNearestInRange()
 				if target then
@@ -186,6 +206,14 @@ local function hk(char)
 			end)
 
 			l()
+
+			-- ADDED COMBO HERE
+			task.delay(0.08, function()
+				if running then
+					comboAction()
+				end
+			end)
+
 			reset()
 		end
 	end)
