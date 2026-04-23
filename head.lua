@@ -30,7 +30,7 @@ end
 
 local function comboAction()
 	pressKey(Enum.KeyCode.Q)
-	task.wait(0.15)
+	task.wait(0.02)
 	pressKey(Enum.KeyCode.Space)
 	task.wait(0.05)
 	pressKey(Enum.KeyCode.Space)
@@ -92,7 +92,7 @@ local function smoothFollow(targetModel)
 	while running and os.clock() - start < 1.25 do
 		if not myRoot or not targetRoot then return end
 
-		local pos = targetRoot.Position + Vector3.new(0, 5, 3)
+		local pos = targetRoot.Position + Vector3.new(3, 4, 0)
 
 		local look = targetRoot.Position - myRoot.Position
 		look = Vector3.new(look.X, 0, look.Z)
