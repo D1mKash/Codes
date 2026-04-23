@@ -70,7 +70,7 @@ local function getNearestInRange()
 		end
 	end
 
-	if closest and dist <= 3 then
+	if closest and dist <= 4 then
 		return closest
 	end
 end
@@ -85,7 +85,7 @@ local function smoothFollow(targetModel)
 
 	local start = os.clock()
 
-	while running and os.clock() - start < 1.1 do
+	while running and os.clock() - start < 0.76 do
 		if not myRoot or not targetRoot then return end
 
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
@@ -95,7 +95,7 @@ local function smoothFollow(targetModel)
 
 		local goal = CFrame.new(pos, pos + look)
 
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.125)
+		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.1725)
 
 		R.Heartbeat:Wait()
 	end
