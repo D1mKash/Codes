@@ -30,7 +30,7 @@ end
 
 local function comboAction()
 	pressKey(Enum.KeyCode.Q)
-	task.wait(0.05)
+	task.wait(0.15)
 	pressKey(Enum.KeyCode.Space)
 	task.wait(0.05)
 	pressKey(Enum.KeyCode.Space)
@@ -196,7 +196,7 @@ local function hk(char)
 
 		local id = track.Animation.AnimationId
 
-		if id == "rbxassetid://1461137417" or id == "rbxassetid://1470454728" then
+		if id == "rbxassetid://1461136875" or id == "rbxassetid://1470447472" then
 
 			task.delay(0.2, function()
 				local target = getNearestInRange()
