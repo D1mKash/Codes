@@ -30,10 +30,6 @@ end
 
 local function comboAction()
 	pressKey(Enum.KeyCode.Q)
-	task.wait(0.02)
-	pressKey(Enum.KeyCode.Space)
-	task.wait(0.05)
-	pressKey(Enum.KeyCode.Space)
 end
 
 ------------------------------------------------
@@ -74,7 +70,7 @@ local function getNearestInRange()
 		end
 	end
 
-	if closest and dist <= 5 then
+	if closest and dist <= 3 then
 		return closest
 	end
 end
