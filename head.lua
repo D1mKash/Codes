@@ -192,7 +192,7 @@ local function hk(char)
 
 		local id = track.Animation.AnimationId
 
-		if id == "rbxassetid://1461136875" or id == "rbxassetid://1470447472" then
+		if id == "rbxassetid://1470454728" or id == "rbxassetid://1461137417" then
 
 			task.delay(0.2, function()
 				local target = getNearestInRange()
