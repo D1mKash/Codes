@@ -115,7 +115,7 @@ local function getNearestInRange()
 		end
 	end
 
-	if closest and dist <= 5 then
+	if closest and dist <= 7 then
 		return closest
 	end
 end
@@ -140,7 +140,7 @@ local function smoothFollow(targetModel)
 
 		local goal = CFrame.new(pos, pos + look)
 
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.15)
+		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.175)
 
 		R.Heartbeat:Wait()
 	end
