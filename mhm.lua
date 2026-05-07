@@ -98,7 +98,7 @@ end
 
 if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
-_0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Four)
+_0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.X then
