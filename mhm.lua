@@ -85,6 +85,81 @@ end
 end)
 end
 
+local function _0x59(_0x60)
+if not _0x60 or not _0x60:IsA("Model")then return false end
+
+local _0x61=_0x7.Character
+
+if _0x60==_0x61 or _0x60.Name==_0x7.Name then
+return false
+end
+
+if _0x16 and _0x60==_0x16 then
+return false
+end
+
+local _0x62=_0x3:FindFirstChild(_0x60.Name)
+
+if _0x62 then
+if _0x62==_0x7 then return false end
+
+if _0x7.Team~=nil and _0x62.Team~=nil and _0x62.Team==_0x7.Team then
+return false
+end
+end
+
+return true
+end
+
+local function _0x63()
+local _0x64=_0x7.Character
+if not _0x64 then return nil end
+
+local _0x65=_0x64:FindFirstChild("HumanoidRootPart")
+if not _0x65 then return nil end
+
+local _0x66=nil
+local _0x67=math.huge
+
+for _,_0x68 in ipairs(_0x17:GetChildren())do
+if _0x59(_0x68)then
+local _0x69=_0x68:FindFirstChild("HumanoidRootPart",true)
+if _0x69 then
+local _0x70=(_0x69.Position-_0x65.Position).Magnitude
+if _0x70<_0x67 then
+_0x67=_0x70
+_0x66=_0x68
+end
+end
+end
+end
+
+return _0x66
+end
+
+local function _0x71()
+local _0x72=_0x7.Character
+if not _0x72 then return end
+
+local _0x73=_0x72:FindFirstChild("HumanoidRootPart")
+if not _0x73 then return end
+
+local _0x74=_0x63()
+if not _0x74 then return end
+
+local _0x75=_0x74:FindFirstChild("HumanoidRootPart",true)
+if not _0x75 then return end
+
+local _0x76=_0x75.CFrame*CFrame.new(0,0,-3)
+local _0x77=CFrame.new(_0x76.Position,_0x75.Position)
+
+_0x73.CFrame=_0x77
+_0x72:PivotTo(_0x77)
+
+_0x73.AssemblyLinearVelocity=Vector3.zero
+_0x73.AssemblyAngularVelocity=Vector3.zero
+end
+
 local function _0x45()
 _0x12=_0x6.InputBegan:Connect(function(_0x46,_0x47)
 if _0x47 then return end
@@ -99,6 +174,9 @@ end
 if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
+task.delay(1,function()
+_0x71()
+end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.X then
