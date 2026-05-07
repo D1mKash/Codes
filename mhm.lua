@@ -141,6 +141,9 @@ local function _0x71()
 local _0x72=_0x7.Character
 if not _0x72 then return end
 
+-- only teleport if KyokaInvisingggg is true
+if _0x72:GetAttribute("KyokaInvisingggg")~=true then return end
+
 local _0x73=_0x72:FindFirstChild("HumanoidRootPart")
 if not _0x73 then return end
 
