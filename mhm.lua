@@ -143,7 +143,7 @@ end
 return _0x66
 end
 
-local function _0x71(_0x72,_0x73)
+local function _0x71(_0x72,_0x73,_0x91)
 local _0x74=_0x7.Character
 if not _0x74 then return end
 
@@ -158,7 +158,7 @@ if not _0x76 then return end
 local _0x77=_0x76:FindFirstChild("HumanoidRootPart",true)
 if not _0x77 then return end
 
-local _0x78=_0x77.CFrame*CFrame.new(0,0,-2)
+local _0x78=_0x77.CFrame*CFrame.new(0,0,_0x91)
 local _0x79=CFrame.new(_0x78.Position,_0x77.Position)
 
 _0x75.CFrame=_0x79
@@ -185,7 +185,7 @@ if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
 task.delay(1.2,function()
-_0x71("KyokaInvisingggg",false)
+_0x71("KyokaInvisingggg",false,-2)
 end)
 end
 
@@ -193,7 +193,7 @@ if _0x46.KeyCode==Enum.KeyCode.X then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
 task.delay(1.2,function()
-_0x71("KyokaInvis",true)
+_0x71("KyokaInvis",true,2)
 end)
 end
 
