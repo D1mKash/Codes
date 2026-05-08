@@ -46,6 +46,12 @@ task.wait(_0x33)
 _0x4:SendKeyEvent(false,_0x32,false,_0x1)
 end
 
+local function _0x90()
+_0x4:SendMouseButtonEvent(0,0,0,true,_0x1,0)
+task.wait(0.1)
+_0x4:SendMouseButtonEvent(0,0,0,false,_0x1,0)
+end
+
 local function _0x34()
 if _0x18 then return end
 _0x18=true
@@ -137,30 +143,31 @@ end
 return _0x66
 end
 
-local function _0x71()
-local _0x72=_0x7.Character
-if not _0x72 then return end
-
--- only teleport if KyokaInvisingggg is true
-if _0x72:GetAttribute("KyokaInvisingggg")~=true then return end
-
-local _0x73=_0x72:FindFirstChild("HumanoidRootPart")
-if not _0x73 then return end
-
-local _0x74=_0x63()
+local function _0x71(_0x72,_0x73)
+local _0x74=_0x7.Character
 if not _0x74 then return end
 
-local _0x75=_0x74:FindFirstChild("HumanoidRootPart",true)
+if _0x74:GetAttribute(_0x72)~=true then return end
+
+local _0x75=_0x74:FindFirstChild("HumanoidRootPart")
 if not _0x75 then return end
 
-local _0x76=_0x75.CFrame*CFrame.new(0,0,-2)
-local _0x77=CFrame.new(_0x76.Position,_0x75.Position)
+local _0x76=_0x63()
+if not _0x76 then return end
 
-_0x73.CFrame=_0x77
-_0x72:PivotTo(_0x77)
+local _0x77=_0x76:FindFirstChild("HumanoidRootPart",true)
+if not _0x77 then return end
 
-_0x73.AssemblyLinearVelocity=Vector3.zero
-_0x73.AssemblyAngularVelocity=Vector3.zero
+local _0x78=_0x77.CFrame*CFrame.new(0,0,-2)
+local _0x79=CFrame.new(_0x78.Position,_0x77.Position)
+
+_0x75.CFrame=_0x79
+_0x74:PivotTo(_0x79)
+
+_0x75.AssemblyLinearVelocity=Vector3.zero
+_0x75.AssemblyAngularVelocity=Vector3.zero
+
+if _0x73 then _0x90()end
 end
 
 local function _0x45()
@@ -178,13 +185,16 @@ if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
 task.delay(1.2,function()
-_0x71()
+_0x71("KyokaInvisingggg",false)
 end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.X then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
+task.delay(1.2,function()
+_0x71("KyokaInvis",true)
+end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.C then
