@@ -153,7 +153,7 @@ if not _0x74 then return end
 local _0x75=_0x74:FindFirstChild("HumanoidRootPart",true)
 if not _0x75 then return end
 
-local _0x76=_0x75.CFrame*CFrame.new(0,0,-3)
+local _0x76=_0x75.CFrame*CFrame.new(0,0,-2)
 local _0x77=CFrame.new(_0x76.Position,_0x75.Position)
 
 _0x73.CFrame=_0x77
@@ -177,7 +177,7 @@ end
 if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
-task.delay(2,function()
+task.delay(1.5,function()
 _0x71()
 end)
 end
