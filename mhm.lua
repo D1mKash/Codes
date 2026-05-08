@@ -177,7 +177,7 @@ end
 if _0x46.KeyCode==Enum.KeyCode.Z then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
-task.delay(1.5,function()
+task.delay(1.2,function()
 _0x71()
 end)
 end
