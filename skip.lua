@@ -140,7 +140,7 @@ local function delayedTeleport(delayTime, maxRange, clickAfterTeleport)
 
 		if teleported and clickAfterTeleport then
 			task.wait(0.753)
-			leftClick(0.03)
+			leftClick(0.035)
 		end
 	end)
 end
