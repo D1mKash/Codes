@@ -64,10 +64,13 @@ end
 -- INPUT
 ------------------------------------------------
 
-local function leftClick(duration)
+local function leftClick()
 	VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-	task.wait(duration or 0.1)
 	VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+
+	task.defer(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+	end)
 end
 
 ------------------------------------------------
@@ -139,8 +142,8 @@ local function delayedTeleport(delayTime, maxRange, clickAfterTeleport)
 		local teleported = teleportBehindNearest(maxRange)
 
 		if teleported and clickAfterTeleport then
-			task.wait(0.753)
-			leftClick(0.035)
+			task.wait(0.053)
+			leftClick()
 		end
 	end)
 end
@@ -159,7 +162,7 @@ function m.Start()
 
 		if input.KeyCode == Enum.KeyCode.Two then
 			if hasInBackpack("Erasure Ω") then
-				delayedTeleport(1.963, 100, true)
+				delayedTeleport(2, 100, true)
 			end
 		end
 
