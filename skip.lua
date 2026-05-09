@@ -161,13 +161,13 @@ function m.Start()
 
 		if input.KeyCode == Enum.KeyCode.Two then
 			if hasInBackpack("Erasure Ω") then
-				delayedTeleport(3, nil, true)
+				delayedTeleport(2.5, nil, true)
 			end
 		end
 
 		if input.KeyCode == Enum.KeyCode.Three then
 			if hasInBackpack("Erasure β") then
-				delayedTeleport(0.7, 40, false)
+				delayedTeleport(0.6, 40, false)
 			end
 		end
 	end)
