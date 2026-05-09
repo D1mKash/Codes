@@ -3,6 +3,7 @@ local m = {}
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
@@ -62,10 +63,20 @@ local function isValidTarget(model)
 end
 
 ------------------------------------------------
+-- INPUT
+------------------------------------------------
+
+local function leftClick(duration)
+	VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+	task.wait(duration or 0.1)
+	VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+
+------------------------------------------------
 -- TARGETING
 ------------------------------------------------
 
-local function getNearestTarget()
+local function getNearestTarget(maxRange)
 	local char = player.Character
 	if not char then return nil end
 
@@ -82,7 +93,7 @@ local function getNearestTarget()
 			if root then
 				local distance = (root.Position - myRoot.Position).Magnitude
 
-				if distance < nearestDistance then
+				if (not maxRange or distance <= maxRange) and distance < nearestDistance then
 					nearestDistance = distance
 					nearest = model
 				end
@@ -93,18 +104,18 @@ local function getNearestTarget()
 	return nearest
 end
 
-local function teleportBehindNearest()
+local function teleportBehindNearest(maxRange)
 	local char = player.Character
-	if not char then return end
+	if not char then return false end
 
 	local myRoot = getRoot(char)
-	if not myRoot then return end
+	if not myRoot then return false end
 
-	local target = getNearestTarget()
-	if not target then return end
+	local target = getNearestTarget(maxRange)
+	if not target then return false end
 
 	local targetRoot = getRoot(target)
-	if not targetRoot then return end
+	if not targetRoot then return false end
 
 	-- 3 studs behind target
 	local behind = targetRoot.CFrame * CFrame.new(0, 0, 3)
@@ -115,18 +126,24 @@ local function teleportBehindNearest()
 
 	myRoot.AssemblyLinearVelocity = Vector3.zero
 	myRoot.AssemblyAngularVelocity = Vector3.zero
+
+	return true
 end
 
 ------------------------------------------------
 -- ACTIONS
 ------------------------------------------------
 
-local function delayedTeleport(delayTime)
+local function delayedTeleport(delayTime, maxRange, clickAfterTeleport)
 	task.delay(delayTime, function()
 		if not running then return end
 		if not hasJumpOk() then return end
 
-		teleportBehindNearest()
+		local teleported = teleportBehindNearest(maxRange)
+
+		if teleported and clickAfterTeleport then
+			leftClick(0.1)
+		end
 	end)
 end
 
@@ -144,13 +161,13 @@ function m.Start()
 
 		if input.KeyCode == Enum.KeyCode.Two then
 			if hasInBackpack("Erasure Ω") then
-				delayedTeleport(3)
+				delayedTeleport(3, nil, true)
 			end
 		end
 
 		if input.KeyCode == Enum.KeyCode.Three then
 			if hasInBackpack("Erasure β") then
-				delayedTeleport(0.5)
+				delayedTeleport(0.7, 40, false)
 			end
 		end
 	end)
