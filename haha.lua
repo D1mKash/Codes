@@ -14,6 +14,8 @@ local inputConnection
 
 local followToken = 0
 local following = false
+local chrolloBusy = false
+local mouseHeld = false
 
 ------------------------------------------------
 -- SETTINGS
@@ -21,12 +23,12 @@ local following = false
 
 local CHROLLO_RANGE = 8
 local CHROLLO_HEIGHT = 4
-local CHROLLO_LERP_ALPHA = 0.16
+local CHROLLO_MOVE_SPEED = 1 -- studs per second
 local CHROLLO_START_DELAY = 1
 local CHROLLO_STOP_AFTER_GONE = 1
 
 local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 10 -- change to nil if you want unlimited range
+local BLUE_RANGE = 20 -- set to nil for unlimited range
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -53,6 +55,24 @@ local function pressKey(key)
 		VIM:SendKeyEvent(true, key, false, game)
 		task.wait(0.01)
 		VIM:SendKeyEvent(false, key, false, game)
+	end)
+end
+
+local function holdLeftClick()
+	if mouseHeld then return end
+	mouseHeld = true
+
+	pcall(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+	end)
+end
+
+local function releaseLeftClick()
+	if not mouseHeld then return end
+	mouseHeld = false
+
+	pcall(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
 end
 
@@ -115,35 +135,64 @@ local function getNearestTarget(maxRange)
 end
 
 ------------------------------------------------
--- CHROLLOSTOP FOLLOW ABOVE HEAD
+-- CHROLLOSTOP SLOW HEAD POSITION
 ------------------------------------------------
 
 local function startChrolloFollow()
+	if chrolloBusy then return end
+
+	chrolloBusy = true
 	followToken += 1
+
 	local token = followToken
 
 	task.delay(CHROLLO_START_DELAY, function()
-		if not running then return end
-		if token ~= followToken then return end
-		if not hasInCharacter("ChrolloStop") then return end
+		if not running then
+			chrolloBusy = false
+			return
+		end
+
+		if token ~= followToken then
+			chrolloBusy = false
+			return
+		end
+
+		if not hasInCharacter("ChrolloStop") then
+			chrolloBusy = false
+			return
+		end
 
 		local char = getCharacter()
-		if not char then return end
+		if not char then
+			chrolloBusy = false
+			return
+		end
 
 		local myRoot = getRoot(char)
-		if not myRoot then return end
+		if not myRoot then
+			chrolloBusy = false
+			return
+		end
 
 		local target, distance = getNearestTarget(CHROLLO_RANGE)
-		if not target or not distance or distance > CHROLLO_RANGE then return end
+		if not target or not distance or distance > CHROLLO_RANGE then
+			chrolloBusy = false
+			return
+		end
 
 		local targetRoot = getRoot(target)
-		if not targetRoot then return end
+		if not targetRoot then
+			chrolloBusy = false
+			return
+		end
 
 		following = true
 
 		local lastSawChrolloStop = os.clock()
 
 		while running and token == followToken and following do
+			local dt = RunService.Heartbeat:Wait()
+
 			char = getCharacter()
 			myRoot = getRoot(char)
 			targetRoot = getRoot(target)
@@ -152,7 +201,7 @@ local function startChrolloFollow()
 				break
 			end
 
-			-- if target suddenly gets out of 8 stud range, stop immediately
+			-- if target gets out of range, stop immediately
 			local currentDistance = (targetRoot.Position - myRoot.Position).Magnitude
 			if currentDistance > CHROLLO_RANGE then
 				break
@@ -166,38 +215,50 @@ local function startChrolloFollow()
 				end
 			end
 
-			local abovePosition = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
-			local goal = CFrame.new(abovePosition, targetRoot.Position)
+			local goalPosition = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
+			local currentPosition = myRoot.Position
+			local direction = goalPosition - currentPosition
+			local distanceToGoal = direction.Magnitude
 
-			myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
-			char:PivotTo(myRoot.CFrame)
+			local newPosition
+
+			if distanceToGoal <= 0.05 then
+				newPosition = goalPosition
+			else
+				local step = math.min(CHROLLO_MOVE_SPEED * dt, distanceToGoal)
+				newPosition = currentPosition + direction.Unit * step
+			end
+
+			local goalCFrame = CFrame.new(newPosition, targetRoot.Position)
+
+			myRoot.CFrame = goalCFrame
+			char:PivotTo(goalCFrame)
 
 			myRoot.AssemblyLinearVelocity = Vector3.zero
 			myRoot.AssemblyAngularVelocity = Vector3.zero
-
-			RunService.Heartbeat:Wait()
 		end
 
 		following = false
+		chrolloBusy = false
 	end)
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT BEHIND
+-- BLUEBUFF Q + TELEPORT BEHIND + HOLD CLICK
 ------------------------------------------------
 
 local function teleportBehindNearest()
 	local char = getCharacter()
-	if not char then return end
+	if not char then return false end
 
 	local myRoot = getRoot(char)
-	if not myRoot then return end
+	if not myRoot then return false end
 
 	local target = getNearestTarget(BLUE_RANGE)
-	if not target then return end
+	if not target then return false end
 
 	local targetRoot = getRoot(target)
-	if not targetRoot then return end
+	if not targetRoot then return false end
 
 	local behind = targetRoot.CFrame * CFrame.new(0, 0, BLUE_BACK_DISTANCE)
 	local goal = CFrame.new(behind.Position, targetRoot.Position)
@@ -207,6 +268,8 @@ local function teleportBehindNearest()
 
 	myRoot.AssemblyLinearVelocity = Vector3.zero
 	myRoot.AssemblyAngularVelocity = Vector3.zero
+
+	return true
 end
 
 local function useBlueBuff()
@@ -214,7 +277,12 @@ local function useBlueBuff()
 
 	pressKey(Enum.KeyCode.Q)
 	task.wait(0.05)
-	teleportBehindNearest()
+
+	local teleported = teleportBehindNearest()
+
+	if teleported then
+		holdLeftClick()
+	end
 end
 
 ------------------------------------------------
@@ -242,7 +310,10 @@ end
 function m.Stop()
 	running = false
 	following = false
+	chrolloBusy = false
 	followToken += 1
+
+	releaseLeftClick()
 
 	if inputConnection then
 		inputConnection:Disconnect()
