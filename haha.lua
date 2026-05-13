@@ -25,7 +25,7 @@ local CHROLLO_START_DELAY = 2.25
 -- Move toward this relative offset first
 local CHROLLO_LOCK_START_RANGE = 4
 local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
-local CHROLLO_STEP_SIZE = 0.05
+local CHROLLO_STEP_SIZE = 0.08
 local CHROLLO_STEP_INTERVAL = 0.01
 local CHROLLO_STOP_AFTER_GONE = 0.4
 
