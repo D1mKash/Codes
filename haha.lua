@@ -19,14 +19,17 @@ local chrolloToken = 0
 -- SETTINGS
 ------------------------------------------------
 
-local CHROLLO_RANGE = 8
 local CHROLLO_START_DELAY = 1
-local CHROLLO_FOLLOW_TIME = 0.76
+local CHROLLO_TARGET_RANGE = 8
+local CHROLLO_HEIGHT_START_RADIUS = 3
 local CHROLLO_HEIGHT = 5
-local CHROLLO_LERP_ALPHA = 0.175
+
+local CHROLLO_Y_STEP = 0.1
+local CHROLLO_Y_INTERVAL = 0.1
+local CHROLLO_STOP_AFTER_GONE = 1
 
 local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 8
+local BLUE_RANGE = 5
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -62,6 +65,13 @@ local function leftClick(duration)
 		task.wait(duration or 0.05)
 		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
+end
+
+local function horizontalDistance(a, b)
+	local aFlat = Vector3.new(a.X, 0, a.Z)
+	local bFlat = Vector3.new(b.X, 0, b.Z)
+
+	return (aFlat - bFlat).Magnitude
 end
 
 ------------------------------------------------
@@ -123,79 +133,44 @@ local function getNearestTarget(maxRange)
 end
 
 ------------------------------------------------
--- OLD LIFT FUNCTION
+-- CHROLLOSTOP HEAD LOCK SYSTEM
 ------------------------------------------------
 
-local function lift()
-	local char = getCharacter()
-	if not char then return end
-
-	local root = getRoot(char)
-	if not root then return end
-
-	root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-
-	local startTime = os.clock()
-
-	task.spawn(function()
-		while running and os.clock() - startTime < 0.1 do
-			if not root or not root.Parent then return end
-
-			root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-			RunService.Heartbeat:Wait()
-		end
-	end)
-end
-
-------------------------------------------------
--- OLD SMOOTH FOLLOW / HEAD LOCK FUNCTION
-------------------------------------------------
-
-local function smoothFollowAboveTarget(targetModel)
-	local char = getCharacter()
-	if not char then return end
-
-	local myRoot = getRoot(char)
+local function getAboveHeadPosition(targetModel)
 	local targetRoot = getRoot(targetModel)
+	if not targetRoot then return nil end
 
-	if not myRoot or not targetRoot then return end
-
-	local startTime = os.clock()
-
-	while running and os.clock() - startTime < CHROLLO_FOLLOW_TIME do
-		char = getCharacter()
-		myRoot = getRoot(char)
-		targetRoot = getRoot(targetModel)
-
-		if not char or not myRoot or not targetRoot then
-			return
-		end
-
-		-- if target gets too far away, stop immediately
-		if (targetRoot.Position - myRoot.Position).Magnitude > CHROLLO_RANGE + CHROLLO_HEIGHT + 3 then
-			return
-		end
-
-		local pos = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
-
-		local look = targetRoot.Position - myRoot.Position
-		look = Vector3.new(look.X, 0, look.Z)
-
-		if look.Magnitude < 0.05 then
-			look = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
-		end
-
-		local goal = CFrame.new(pos, pos + look)
-
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
-
-		RunService.Heartbeat:Wait()
-	end
+	return targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
 end
 
-------------------------------------------------
--- CHROLLOSTOP ACTION
-------------------------------------------------
+local function setRootYOnly(root, newY, lookAtPosition)
+	local currentPosition = root.Position
+	local newPosition = Vector3.new(currentPosition.X, newY, currentPosition.Z)
+
+	local look = Vector3.new(
+		lookAtPosition.X,
+		newPosition.Y,
+		lookAtPosition.Z
+	)
+
+	root.CFrame = CFrame.new(newPosition, look)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
+end
+
+local function lockOnTopOfTarget(root, targetRoot)
+	local goalPosition = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
+
+	local look = Vector3.new(
+		targetRoot.Position.X,
+		goalPosition.Y,
+		targetRoot.Position.Z
+	)
+
+	root.CFrame = CFrame.new(goalPosition, look)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
+end
 
 local function startChrolloFollow()
 	if chrolloBusy then return end
@@ -221,15 +196,90 @@ local function startChrolloFollow()
 			return
 		end
 
-		local target = getNearestTarget(CHROLLO_RANGE)
+		local char = getCharacter()
+		local myRoot = getRoot(char)
+
+		if not char or not myRoot then
+			chrolloBusy = false
+			return
+		end
+
+		local target = getNearestTarget(CHROLLO_TARGET_RANGE)
 
 		if not target then
 			chrolloBusy = false
 			return
 		end
 
-		lift()
-		smoothFollowAboveTarget(target)
+		local targetRoot = getRoot(target)
+
+		if not targetRoot then
+			chrolloBusy = false
+			return
+		end
+
+		local heightReady = false
+		local lastSawChrolloStop = os.clock()
+		local lastYStep = 0
+
+		while running and token == chrolloToken do
+			RunService.Heartbeat:Wait()
+
+			char = getCharacter()
+			myRoot = getRoot(char)
+			targetRoot = getRoot(target)
+
+			if not char or not myRoot or not targetRoot then
+				break
+			end
+
+			local distToTarget = (targetRoot.Position - myRoot.Position).Magnitude
+
+			if distToTarget > CHROLLO_TARGET_RANGE + CHROLLO_HEIGHT then
+				break
+			end
+
+			if hasInCharacter("ChrolloStop") then
+				lastSawChrolloStop = os.clock()
+			else
+				if os.clock() - lastSawChrolloStop >= CHROLLO_STOP_AFTER_GONE then
+					break
+				end
+			end
+
+			local goalPosition = getAboveHeadPosition(target)
+			if not goalPosition then
+				break
+			end
+
+			local horizontalDist = horizontalDistance(myRoot.Position, targetRoot.Position)
+
+			if not heightReady then
+				-- Do not touch X/Z until you are close enough horizontally.
+				if horizontalDist <= CHROLLO_HEIGHT_START_RADIUS then
+					if os.clock() - lastYStep >= CHROLLO_Y_INTERVAL then
+						lastYStep = os.clock()
+
+						local currentY = myRoot.Position.Y
+						local targetY = goalPosition.Y
+						local difference = targetY - currentY
+
+						if math.abs(difference) <= CHROLLO_Y_STEP then
+							setRootYOnly(myRoot, targetY, targetRoot.Position)
+							heightReady = true
+						else
+							local direction = difference > 0 and 1 or -1
+							local newY = currentY + (CHROLLO_Y_STEP * direction)
+
+							setRootYOnly(myRoot, newY, targetRoot.Position)
+						end
+					end
+				end
+			else
+				-- Only after Y height is correct, lock X/Z above their head.
+				lockOnTopOfTarget(myRoot, targetRoot)
+			end
+		end
 
 		chrolloBusy = false
 	end)
