@@ -19,28 +19,52 @@ local chrolloToken = 0
 -- SETTINGS
 ------------------------------------------------
 
-local CHROLLO_START_DELAY = 1
 local CHROLLO_RANGE = 8
-local CHROLLO_HEIGHT = 5
-local CHROLLO_LERP_ALPHA = 0.175
-local CHROLLO_STOP_AFTER_GONE = 1
-local CHROLLO_START_DELAY = 1
+local CHROLLO_START_DELAY = 2
 
 -- Move toward this relative offset first
-local CHROLLO_LOCK_START_RANGE = 5
+local CHROLLO_LOCK_START_RANGE = 4
 local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
 local CHROLLO_STEP_SIZE = 0.1
 local CHROLLO_STEP_INTERVAL = 0.01
-local CHROLLO_STOP_AFTER_GONE = 0.5
+local CHROLLO_STOP_AFTER_GONE = 1
 
-local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 5
 local BLUE_BACK_DISTANCE = 1
 local BLUE_RANGE = 8
 
 ------------------------------------------------
 -- BASIC HELPERS
-@@ -64,6 +68,25 @@
+------------------------------------------------
+
+local function getCharacter()
+	return player.Character
+end
+
+local function getRoot(model)
+	if not model then return nil end
+	return model:FindFirstChild("HumanoidRootPart", true)
+end
+
+local function hasInCharacter(name)
+	local char = getCharacter()
+	if not char then return false end
+
+	return char:FindFirstChild(name, true) ~= nil
+end
+
+local function pressKey(key)
+	pcall(function()
+		VIM:SendKeyEvent(true, key, false, game)
+		task.wait(0.01)
+		VIM:SendKeyEvent(false, key, false, game)
+	end)
+end
+
+local function leftClick(duration)
+	pcall(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+		task.wait(duration or 0.05)
+		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
 end
 
@@ -66,16 +90,97 @@ end
 ------------------------------------------------
 -- TARGET CHECK
 ------------------------------------------------
-@@ -148,7 +171,7 @@
+
+local function isValidTarget(model)
+	if not model or not model:IsA("Model") then
+		return false
+	end
+
+	local myChar = getCharacter()
+
+	if model == myChar or model.Name == player.Name then
+		return false
+	end
+
+	local targetPlayer = Players:FindFirstChild(model.Name)
+
+	if targetPlayer then
+		if targetPlayer == player then
+			return false
+		end
+
+		if player.Team ~= nil and targetPlayer.Team ~= nil and targetPlayer.Team == player.Team then
+			return false
+		end
+	end
+
+	return true
+end
+
+local function getNearestTarget(maxRange)
+	local char = getCharacter()
+	if not char then return nil end
+
+	local myRoot = getRoot(char)
+	if not myRoot then return nil end
+
+	local nearest = nil
+	local nearestDistance = math.huge
+
+	for _, model in ipairs(LIVE:GetChildren()) do
+		if isValidTarget(model) then
+			local root = getRoot(model)
+
+			if root then
+				local distance = (root.Position - myRoot.Position).Magnitude
+
+				if (not maxRange or distance <= maxRange) and distance < nearestDistance then
+					nearestDistance = distance
+					nearest = model
+				end
+			end
+		end
+	end
+
+	return nearest, nearestDistance
 end
 
 ------------------------------------------------
--- LOCK ABOVE TARGET HEAD
+-- LIFT FUNCTION
+------------------------------------------------
+
+local function lift()
+	local char = getCharacter()
+	if not char then return end
+
+	local root = getRoot(char)
+	if not root then return end
+
+	root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
+
+	local startTime = os.clock()
+
+	task.spawn(function()
+		while running and os.clock() - startTime < 0.1 do
+			if not root or not root.Parent then return end
+
+			root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
+			RunService.Heartbeat:Wait()
+		end
+	end)
+end
+
+------------------------------------------------
 -- STEP TO OFFSET, THEN NORMAL LOCK
 ------------------------------------------------
 
 local function smoothFollowAboveTarget(targetModel)
-@@ -161,6 +184,8 @@
+	local char = getCharacter()
+	if not char then return end
+
+	local myRoot = getRoot(char)
+	local targetRoot = getRoot(targetModel)
+
 	if not myRoot or not targetRoot then return end
 
 	local lastSawChrolloStop = os.clock()
@@ -84,31 +189,27 @@ local function smoothFollowAboveTarget(targetModel)
 
 	while running do
 		char = getCharacter()
-@@ -179,150 +204,162 @@
+		myRoot = getRoot(char)
+		targetRoot = getRoot(targetModel)
+
+		if not char or not myRoot or not targetRoot then
+			return
+		end
+
+		if hasInCharacter("ChrolloStop") then
+			lastSawChrolloStop = os.clock()
+		else
+			if os.clock() - lastSawChrolloStop >= CHROLLO_STOP_AFTER_GONE then
+				return
 			end
 		end
 
-		-- Match target X/Z, stay above them on Y
-		local targetPos = targetRoot.Position
-		local goalPosition = Vector3.new(
-			targetPos.X,
-			targetPos.Y + CHROLLO_HEIGHT,
-			targetPos.Z
-		)
 		local targetPosition = targetRoot.Position
 		local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
 
-		-- Face same horizontal direction as the target
-		local look = targetRoot.CFrame.LookVector
-		look = Vector3.new(look.X, 0, look.Z)
 		if not lockedOnHead then
 			local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
 
-		if look.Magnitude < 0.05 then
-			look = Vector3.new(0, 0, -1)
-		else
-			look = look.Unit
-		end
 			if horizontalDist <= CHROLLO_LOCK_START_RANGE then
 				if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
 					lastStepTime = os.clock()
@@ -126,24 +227,19 @@ local function smoothFollowAboveTarget(targetModel)
 						myRoot.CFrame = safeFacingCFrame(newPosition, targetRoot)
 					end
 
-		local goal = CFrame.new(goalPosition, goalPosition + look)
 					myRoot.AssemblyLinearVelocity = Vector3.zero
 					myRoot.AssemblyAngularVelocity = Vector3.zero
 				end
 			end
 
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
 			task.wait()
 		else
 			-- Once reached, stop slow stepping and lock normally every frame
 			myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
 
-		myRoot.AssemblyLinearVelocity = Vector3.zero
-		myRoot.AssemblyAngularVelocity = Vector3.zero
 			myRoot.AssemblyLinearVelocity = Vector3.zero
 			myRoot.AssemblyAngularVelocity = Vector3.zero
 
-		RunService.Heartbeat:Wait()
 			RunService.Heartbeat:Wait()
 		end
 	end
