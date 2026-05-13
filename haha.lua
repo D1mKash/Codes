@@ -12,22 +12,21 @@ local LIVE = Workspace:WaitForChild("Live")
 local running = false
 local inputConnection
 
-local followToken = 0
-local following = false
 local chrolloBusy = false
+local chrolloToken = 0
 
 ------------------------------------------------
 -- SETTINGS
 ------------------------------------------------
 
 local CHROLLO_RANGE = 8
-local CHROLLO_MOVE_SPEED = 1 -- studs per second
 local CHROLLO_START_DELAY = 1
-local CHROLLO_STOP_AFTER_GONE = 1
-local CHROLLO_STAND_OFFSET_ABOVE_HEAD = 3
+local CHROLLO_FOLLOW_TIME = 0.76
+local CHROLLO_HEIGHT = 5
+local CHROLLO_LERP_ALPHA = 0.175
 
 local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 5
+local BLUE_RANGE = 8
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -40,11 +39,6 @@ end
 local function getRoot(model)
 	if not model then return nil end
 	return model:FindFirstChild("HumanoidRootPart", true)
-end
-
-local function getHead(model)
-	if not model then return nil end
-	return model:FindFirstChild("Head", true)
 end
 
 local function hasInCharacter(name)
@@ -68,12 +62,6 @@ local function leftClick(duration)
 		task.wait(duration or 0.05)
 		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
-end
-
-local function horizontalDistance(a, b)
-	local av = Vector3.new(a.X, 0, a.Z)
-	local bv = Vector3.new(b.X, 0, b.Z)
-	return (av - bv).Magnitude
 end
 
 ------------------------------------------------
@@ -135,31 +123,87 @@ local function getNearestTarget(maxRange)
 end
 
 ------------------------------------------------
--- CHROLLOSTOP SLOW HEAD FOLLOW
+-- OLD LIFT FUNCTION
 ------------------------------------------------
 
-local function getStandOnHeadPosition(target)
-	local head = getHead(target)
-	local root = getRoot(target)
+local function lift()
+	local char = getCharacter()
+	if not char then return end
 
-	if head then
-		return head.Position + Vector3.new(0, CHROLLO_STAND_OFFSET_ABOVE_HEAD, 0)
-	end
+	local root = getRoot(char)
+	if not root then return end
 
-	if root then
-		return root.Position + Vector3.new(0, 6, 0)
-	end
+	root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
 
-	return nil
+	local startTime = os.clock()
+
+	task.spawn(function()
+		while running and os.clock() - startTime < 0.1 do
+			if not root or not root.Parent then return end
+
+			root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
+			RunService.Heartbeat:Wait()
+		end
+	end)
 end
+
+------------------------------------------------
+-- OLD SMOOTH FOLLOW / HEAD LOCK FUNCTION
+------------------------------------------------
+
+local function smoothFollowAboveTarget(targetModel)
+	local char = getCharacter()
+	if not char then return end
+
+	local myRoot = getRoot(char)
+	local targetRoot = getRoot(targetModel)
+
+	if not myRoot or not targetRoot then return end
+
+	local startTime = os.clock()
+
+	while running and os.clock() - startTime < CHROLLO_FOLLOW_TIME do
+		char = getCharacter()
+		myRoot = getRoot(char)
+		targetRoot = getRoot(targetModel)
+
+		if not char or not myRoot or not targetRoot then
+			return
+		end
+
+		-- if target gets too far away, stop immediately
+		if (targetRoot.Position - myRoot.Position).Magnitude > CHROLLO_RANGE + CHROLLO_HEIGHT + 3 then
+			return
+		end
+
+		local pos = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
+
+		local look = targetRoot.Position - myRoot.Position
+		look = Vector3.new(look.X, 0, look.Z)
+
+		if look.Magnitude < 0.05 then
+			look = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
+		end
+
+		local goal = CFrame.new(pos, pos + look)
+
+		myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
+
+		RunService.Heartbeat:Wait()
+	end
+end
+
+------------------------------------------------
+-- CHROLLOSTOP ACTION
+------------------------------------------------
 
 local function startChrolloFollow()
 	if chrolloBusy then return end
 
 	chrolloBusy = true
-	followToken += 1
+	chrolloToken += 1
 
-	local token = followToken
+	local token = chrolloToken
 
 	task.delay(CHROLLO_START_DELAY, function()
 		if not running then
@@ -167,7 +211,7 @@ local function startChrolloFollow()
 			return
 		end
 
-		if token ~= followToken then
+		if token ~= chrolloToken then
 			chrolloBusy = false
 			return
 		end
@@ -177,83 +221,16 @@ local function startChrolloFollow()
 			return
 		end
 
-		local char = getCharacter()
-		local myRoot = getRoot(char)
+		local target = getNearestTarget(CHROLLO_RANGE)
 
-		if not char or not myRoot then
+		if not target then
 			chrolloBusy = false
 			return
 		end
 
-		local target, distance = getNearestTarget(CHROLLO_RANGE)
+		lift()
+		smoothFollowAboveTarget(target)
 
-		if not target or not distance or distance > CHROLLO_RANGE then
-			chrolloBusy = false
-			return
-		end
-
-		local targetRoot = getRoot(target)
-
-		if not targetRoot then
-			chrolloBusy = false
-			return
-		end
-
-		following = true
-
-		local lastSawChrolloStop = os.clock()
-
-		while running and token == followToken and following do
-			local dt = RunService.Heartbeat:Wait()
-
-			char = getCharacter()
-			myRoot = getRoot(char)
-			targetRoot = getRoot(target)
-
-			if not char or not myRoot or not targetRoot then
-				break
-			end
-
-			-- Stop immediately if target moves out of horizontal range
-			if horizontalDistance(targetRoot.Position, myRoot.Position) > CHROLLO_RANGE then
-				break
-			end
-
-			if hasInCharacter("ChrolloStop") then
-				lastSawChrolloStop = os.clock()
-			else
-				if os.clock() - lastSawChrolloStop >= CHROLLO_STOP_AFTER_GONE then
-					break
-				end
-			end
-
-			local goalPosition = getStandOnHeadPosition(target)
-			if not goalPosition then
-				break
-			end
-
-			local currentPosition = myRoot.Position
-			local offset = goalPosition - currentPosition
-			local distanceToGoal = offset.Magnitude
-
-			local newPosition
-
-			if distanceToGoal <= 0.03 then
-				newPosition = goalPosition
-			else
-				local step = math.min(CHROLLO_MOVE_SPEED * dt, distanceToGoal)
-				newPosition = currentPosition + offset.Unit * step
-			end
-
-			local lookAt = Vector3.new(targetRoot.Position.X, newPosition.Y, targetRoot.Position.Z)
-			local goalCFrame = CFrame.new(newPosition, lookAt)
-
-			myRoot.CFrame = goalCFrame
-			myRoot.AssemblyLinearVelocity = Vector3.zero
-			myRoot.AssemblyAngularVelocity = Vector3.zero
-		end
-
-		following = false
 		chrolloBusy = false
 	end)
 end
@@ -324,9 +301,8 @@ end
 
 function m.Stop()
 	running = false
-	following = false
 	chrolloBusy = false
-	followToken += 1
+	chrolloToken += 1
 
 	if inputConnection then
 		inputConnection:Disconnect()
