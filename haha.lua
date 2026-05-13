@@ -15,20 +15,19 @@ local inputConnection
 local followToken = 0
 local following = false
 local chrolloBusy = false
-local mouseHeld = false
 
 ------------------------------------------------
 -- SETTINGS
 ------------------------------------------------
 
 local CHROLLO_RANGE = 8
-local CHROLLO_HEIGHT = 4
 local CHROLLO_MOVE_SPEED = 1 -- studs per second
 local CHROLLO_START_DELAY = 1
 local CHROLLO_STOP_AFTER_GONE = 1
+local CHROLLO_STAND_OFFSET_ABOVE_HEAD = 3
 
 local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 20 -- set to nil for unlimited range
+local BLUE_RANGE = 5
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -41,6 +40,11 @@ end
 local function getRoot(model)
 	if not model then return nil end
 	return model:FindFirstChild("HumanoidRootPart", true)
+end
+
+local function getHead(model)
+	if not model then return nil end
+	return model:FindFirstChild("Head", true)
 end
 
 local function hasInCharacter(name)
@@ -58,22 +62,18 @@ local function pressKey(key)
 	end)
 end
 
-local function holdLeftClick()
-	if mouseHeld then return end
-	mouseHeld = true
-
+local function leftClick(duration)
 	pcall(function()
 		VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+		task.wait(duration or 0.05)
+		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
 end
 
-local function releaseLeftClick()
-	if not mouseHeld then return end
-	mouseHeld = false
-
-	pcall(function()
-		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-	end)
+local function horizontalDistance(a, b)
+	local av = Vector3.new(a.X, 0, a.Z)
+	local bv = Vector3.new(b.X, 0, b.Z)
+	return (av - bv).Magnitude
 end
 
 ------------------------------------------------
@@ -135,8 +135,23 @@ local function getNearestTarget(maxRange)
 end
 
 ------------------------------------------------
--- CHROLLOSTOP SLOW HEAD POSITION
+-- CHROLLOSTOP SLOW HEAD FOLLOW
 ------------------------------------------------
+
+local function getStandOnHeadPosition(target)
+	local head = getHead(target)
+	local root = getRoot(target)
+
+	if head then
+		return head.Position + Vector3.new(0, CHROLLO_STAND_OFFSET_ABOVE_HEAD, 0)
+	end
+
+	if root then
+		return root.Position + Vector3.new(0, 6, 0)
+	end
+
+	return nil
+end
 
 local function startChrolloFollow()
 	if chrolloBusy then return end
@@ -163,24 +178,22 @@ local function startChrolloFollow()
 		end
 
 		local char = getCharacter()
-		if not char then
-			chrolloBusy = false
-			return
-		end
-
 		local myRoot = getRoot(char)
-		if not myRoot then
+
+		if not char or not myRoot then
 			chrolloBusy = false
 			return
 		end
 
 		local target, distance = getNearestTarget(CHROLLO_RANGE)
+
 		if not target or not distance or distance > CHROLLO_RANGE then
 			chrolloBusy = false
 			return
 		end
 
 		local targetRoot = getRoot(target)
+
 		if not targetRoot then
 			chrolloBusy = false
 			return
@@ -201,9 +214,8 @@ local function startChrolloFollow()
 				break
 			end
 
-			-- if target gets out of range, stop immediately
-			local currentDistance = (targetRoot.Position - myRoot.Position).Magnitude
-			if currentDistance > CHROLLO_RANGE then
+			-- Stop immediately if target moves out of horizontal range
+			if horizontalDistance(targetRoot.Position, myRoot.Position) > CHROLLO_RANGE then
 				break
 			end
 
@@ -215,25 +227,28 @@ local function startChrolloFollow()
 				end
 			end
 
-			local goalPosition = targetRoot.Position + Vector3.new(0, CHROLLO_HEIGHT, 0)
+			local goalPosition = getStandOnHeadPosition(target)
+			if not goalPosition then
+				break
+			end
+
 			local currentPosition = myRoot.Position
-			local direction = goalPosition - currentPosition
-			local distanceToGoal = direction.Magnitude
+			local offset = goalPosition - currentPosition
+			local distanceToGoal = offset.Magnitude
 
 			local newPosition
 
-			if distanceToGoal <= 0.05 then
+			if distanceToGoal <= 0.03 then
 				newPosition = goalPosition
 			else
 				local step = math.min(CHROLLO_MOVE_SPEED * dt, distanceToGoal)
-				newPosition = currentPosition + direction.Unit * step
+				newPosition = currentPosition + offset.Unit * step
 			end
 
-			local goalCFrame = CFrame.new(newPosition, targetRoot.Position)
+			local lookAt = Vector3.new(targetRoot.Position.X, newPosition.Y, targetRoot.Position.Z)
+			local goalCFrame = CFrame.new(newPosition, lookAt)
 
 			myRoot.CFrame = goalCFrame
-			char:PivotTo(goalCFrame)
-
 			myRoot.AssemblyLinearVelocity = Vector3.zero
 			myRoot.AssemblyAngularVelocity = Vector3.zero
 		end
@@ -244,7 +259,7 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT BEHIND + HOLD CLICK
+-- BLUEBUFF Q + TELEPORT BEHIND + CLICK
 ------------------------------------------------
 
 local function teleportBehindNearest()
@@ -281,7 +296,7 @@ local function useBlueBuff()
 	local teleported = teleportBehindNearest()
 
 	if teleported then
-		holdLeftClick()
+		leftClick(0.05)
 	end
 end
 
@@ -312,8 +327,6 @@ function m.Stop()
 	following = false
 	chrolloBusy = false
 	followToken += 1
-
-	releaseLeftClick()
 
 	if inputConnection then
 		inputConnection:Disconnect()
