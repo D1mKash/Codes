@@ -22,8 +22,8 @@ local chrolloToken = 0
 local CHROLLO_RANGE = 8
 local CHROLLO_START_DELAY = 1
 
--- Move toward this relative offset first
 local CHROLLO_LOCK_START_RANGE = 5
+local CHROLLO_LOCK_ACTIVE_TIME = 1
 local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
 local CHROLLO_STEP_SIZE = 0.1
 local CHROLLO_STEP_INTERVAL = 0.01
@@ -48,7 +48,6 @@ end
 local function hasInCharacter(name)
 	local char = getCharacter()
 	if not char then return false end
-
 	return char:FindFirstChild(name, true) ~= nil
 end
 
@@ -171,7 +170,7 @@ local function lift()
 end
 
 ------------------------------------------------
--- STEP TO OFFSET, THEN NORMAL LOCK
+-- STEP TO OFFSET, TEMP STOP, THEN FINAL LOCK
 ------------------------------------------------
 
 local function smoothFollowAboveTarget(targetModel)
@@ -183,9 +182,15 @@ local function smoothFollowAboveTarget(targetModel)
 
 	if not myRoot or not targetRoot then return end
 
-	local lastSawChrolloStop = os.clock()
 	local lockedOnHead = false
 	local lastStepTime = 0
+
+	local firstLockStarted = false
+	local firstLockStartTime = 0
+	local firstLockEnded = false
+
+	local chrolloGoneStarted = false
+	local chrolloGoneStartTime = 0
 
 	while running do
 		char = getCharacter()
@@ -196,10 +201,18 @@ local function smoothFollowAboveTarget(targetModel)
 			return
 		end
 
-		if hasInCharacter("ChrolloStop") then
-			lastSawChrolloStop = os.clock()
-		else
-			if os.clock() - lastSawChrolloStop >= CHROLLO_STOP_AFTER_GONE then
+		local hasStop = hasInCharacter("ChrolloStop")
+
+		if not hasStop then
+			if not chrolloGoneStarted then
+				chrolloGoneStarted = true
+				chrolloGoneStartTime = os.clock()
+
+				lockedOnHead = false
+				lastStepTime = 0
+			end
+
+			if os.clock() - chrolloGoneStartTime >= CHROLLO_STOP_AFTER_GONE then
 				return
 			end
 		end
@@ -207,10 +220,32 @@ local function smoothFollowAboveTarget(targetModel)
 		local targetPosition = targetRoot.Position
 		local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
 
-		if not lockedOnHead then
-			local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
+		local shouldLock = false
 
-			if horizontalDist <= CHROLLO_LOCK_START_RANGE then
+		if hasStop then
+			if not firstLockEnded then
+				local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
+
+				if horizontalDist <= CHROLLO_LOCK_START_RANGE then
+					if not firstLockStarted then
+						firstLockStarted = true
+						firstLockStartTime = os.clock()
+					end
+
+					if os.clock() - firstLockStartTime <= CHROLLO_LOCK_ACTIVE_TIME then
+						shouldLock = true
+					else
+						firstLockEnded = true
+						lockedOnHead = false
+					end
+				end
+			end
+		else
+			shouldLock = true
+		end
+
+		if shouldLock then
+			if not lockedOnHead then
 				if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
 					lastStepTime = os.clock()
 
@@ -230,16 +265,17 @@ local function smoothFollowAboveTarget(targetModel)
 					myRoot.AssemblyLinearVelocity = Vector3.zero
 					myRoot.AssemblyAngularVelocity = Vector3.zero
 				end
+
+				task.wait()
+			else
+				myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
+
+				myRoot.AssemblyLinearVelocity = Vector3.zero
+				myRoot.AssemblyAngularVelocity = Vector3.zero
+
+				RunService.Heartbeat:Wait()
 			end
-
-			task.wait()
 		else
-			-- Once reached, stop slow stepping and lock normally every frame
-			myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
-
-			myRoot.AssemblyLinearVelocity = Vector3.zero
-			myRoot.AssemblyAngularVelocity = Vector3.zero
-
 			RunService.Heartbeat:Wait()
 		end
 	end
