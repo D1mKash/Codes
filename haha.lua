@@ -30,7 +30,7 @@ local CHROLLO_STEP_INTERVAL = 0.01
 local CHROLLO_STOP_AFTER_GONE = 1
 
 local BLUE_BACK_DISTANCE = 1
-local BLUE_RANGE = 8
+local BLUE_RANGE = 7
 
 ------------------------------------------------
 -- BASIC HELPERS
