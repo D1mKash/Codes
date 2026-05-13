@@ -19,68 +19,28 @@ local chrolloToken = 0
 -- SETTINGS
 ------------------------------------------------
 
+local CHROLLO_START_DELAY = 1
 local CHROLLO_RANGE = 8
+local CHROLLO_HEIGHT = 5
+local CHROLLO_LERP_ALPHA = 0.175
+local CHROLLO_STOP_AFTER_GONE = 1
 local CHROLLO_START_DELAY = 1
 
+-- Move toward this relative offset first
 local CHROLLO_LOCK_START_RANGE = 5
-local CHROLLO_LOCK_ACTIVE_TIME = 1
-
 local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
 local CHROLLO_STEP_SIZE = 0.1
 local CHROLLO_STEP_INTERVAL = 0.01
+local CHROLLO_STOP_AFTER_GONE = 0.5
 
-local CHROLLO_DAMAGE_TRIGGER_AMOUNT = 12
-local CHROLLO_STOP_AFTER_DAMAGE = 0.5
-
+local BLUE_BACK_DISTANCE = 2
+local BLUE_RANGE = 5
 local BLUE_BACK_DISTANCE = 1
 local BLUE_RANGE = 8
 
 ------------------------------------------------
 -- BASIC HELPERS
-------------------------------------------------
-
-local function getCharacter()
-	return player.Character
-end
-
-local function getRoot(model)
-	if not model then return nil end
-	return model:FindFirstChild("HumanoidRootPart", true)
-end
-
-local function getDamageValue()
-	local stats = player:FindFirstChild("Stats")
-	if not stats then return nil end
-
-	local damage = stats:FindFirstChild("Damage")
-	if not damage then return nil end
-
-	if damage:IsA("NumberValue") or damage:IsA("IntValue") then
-		return damage
-	end
-
-	return nil
-end
-
-local function hasInCharacter(name)
-	local char = getCharacter()
-	if not char then return false end
-	return char:FindFirstChild(name, true) ~= nil
-end
-
-local function pressKey(key)
-	pcall(function()
-		VIM:SendKeyEvent(true, key, false, game)
-		task.wait(0.01)
-		VIM:SendKeyEvent(false, key, false, game)
-	end)
-end
-
-local function leftClick(duration)
-	pcall(function()
-		VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-		task.wait(duration or 0.05)
-		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+@@ -64,6 +68,25 @@
 	end)
 end
 
@@ -106,215 +66,84 @@ end
 ------------------------------------------------
 -- TARGET CHECK
 ------------------------------------------------
-
-local function isValidTarget(model)
-	if not model or not model:IsA("Model") then
-		return false
-	end
-
-	local myChar = getCharacter()
-
-	if model == myChar or model.Name == player.Name then
-		return false
-	end
-
-	local targetPlayer = Players:FindFirstChild(model.Name)
-
-	if targetPlayer then
-		if targetPlayer == player then
-			return false
-		end
-
-		if player.Team ~= nil and targetPlayer.Team ~= nil and targetPlayer.Team == player.Team then
-			return false
-		end
-	end
-
-	return true
-end
-
-local function getNearestTarget(maxRange)
-	local char = getCharacter()
-	if not char then return nil end
-
-	local myRoot = getRoot(char)
-	if not myRoot then return nil end
-
-	local nearest = nil
-	local nearestDistance = math.huge
-
-	for _, model in ipairs(LIVE:GetChildren()) do
-		if isValidTarget(model) then
-			local root = getRoot(model)
-
-			if root then
-				local distance = (root.Position - myRoot.Position).Magnitude
-
-				if (not maxRange or distance <= maxRange) and distance < nearestDistance then
-					nearestDistance = distance
-					nearest = model
-				end
-			end
-		end
-	end
-
-	return nearest, nearestDistance
+@@ -148,7 +171,7 @@
 end
 
 ------------------------------------------------
--- LIFT FUNCTION
-------------------------------------------------
-
-local function lift()
-	local char = getCharacter()
-	if not char then return end
-
-	local root = getRoot(char)
-	if not root then return end
-
-	root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-
-	local startTime = os.clock()
-
-	task.spawn(function()
-		while running and os.clock() - startTime < 0.1 do
-			if not root or not root.Parent then return end
-
-			root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-			RunService.Heartbeat:Wait()
-		end
-	end)
-end
-
-------------------------------------------------
--- STEP TO OFFSET HELPER
-------------------------------------------------
-
-local function doSmoothLockStep(myRoot, targetRoot, lockedOnHead, lastStepTime)
-	local targetPosition = targetRoot.Position
-	local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
-
-	if not lockedOnHead then
-		if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
-			lastStepTime = os.clock()
-
-			local currentOffset = myRoot.Position - targetPosition
-			local difference = CHROLLO_TARGET_OFFSET - currentOffset
-
-			if difference.Magnitude <= CHROLLO_STEP_SIZE then
-				lockedOnHead = true
-				myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
-			else
-				local newOffset = currentOffset + difference.Unit * CHROLLO_STEP_SIZE
-				local newPosition = targetPosition + newOffset
-
-				myRoot.CFrame = safeFacingCFrame(newPosition, targetRoot)
-			end
-
-			myRoot.AssemblyLinearVelocity = Vector3.zero
-			myRoot.AssemblyAngularVelocity = Vector3.zero
-		end
-
-		task.wait()
-	else
-		myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
-
-		myRoot.AssemblyLinearVelocity = Vector3.zero
-		myRoot.AssemblyAngularVelocity = Vector3.zero
-
-		RunService.Heartbeat:Wait()
-	end
-
-	return lockedOnHead, lastStepTime
-end
-
-------------------------------------------------
--- STEP TO OFFSET, TEMP STOP, THEN DAMAGE TRIGGER LOCK
+-- LOCK ABOVE TARGET HEAD
+-- STEP TO OFFSET, THEN NORMAL LOCK
 ------------------------------------------------
 
 local function smoothFollowAboveTarget(targetModel)
-	local char = getCharacter()
-	if not char then return end
-
-	local myRoot = getRoot(char)
-	local targetRoot = getRoot(targetModel)
-
+@@ -161,6 +184,8 @@
 	if not myRoot or not targetRoot then return end
 
-	local damageValue = getDamageValue()
-	local lastDamage = damageValue and damageValue.Value or nil
-
+	local lastSawChrolloStop = os.clock()
 	local lockedOnHead = false
 	local lastStepTime = 0
 
-	local firstLockStarted = false
-	local firstLockStartTime = 0
-	local firstLockEnded = false
-
-	local damageTriggered = false
-	local damageTriggerStartTime = 0
-
 	while running do
 		char = getCharacter()
-		myRoot = getRoot(char)
-		targetRoot = getRoot(targetModel)
-
-		if not char or not myRoot or not targetRoot then
-			return
-		end
-
-		damageValue = getDamageValue()
-
-		if damageValue then
-			local currentDamage = damageValue.Value
-
-			if lastDamage ~= nil then
-				local damageIncrease = currentDamage - lastDamage
-
-				if damageIncrease == CHROLLO_DAMAGE_TRIGGER_AMOUNT and not damageTriggered then
-					damageTriggered = true
-					damageTriggerStartTime = os.clock()
-
-					lockedOnHead = false
-					lastStepTime = 0
-				end
+@@ -179,150 +204,162 @@
 			end
-
-			lastDamage = currentDamage
 		end
 
+		-- Match target X/Z, stay above them on Y
+		local targetPos = targetRoot.Position
+		local goalPosition = Vector3.new(
+			targetPos.X,
+			targetPos.Y + CHROLLO_HEIGHT,
+			targetPos.Z
+		)
 		local targetPosition = targetRoot.Position
-		local shouldLock = false
+		local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
 
-		if damageTriggered then
-			if os.clock() - damageTriggerStartTime <= CHROLLO_STOP_AFTER_DAMAGE then
-				shouldLock = true
-			else
-				return
-			end
+		-- Face same horizontal direction as the target
+		local look = targetRoot.CFrame.LookVector
+		look = Vector3.new(look.X, 0, look.Z)
+		if not lockedOnHead then
+			local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
+
+		if look.Magnitude < 0.05 then
+			look = Vector3.new(0, 0, -1)
 		else
-			if not firstLockEnded then
-				local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
+			look = look.Unit
+		end
+			if horizontalDist <= CHROLLO_LOCK_START_RANGE then
+				if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
+					lastStepTime = os.clock()
 
-				if horizontalDist <= CHROLLO_LOCK_START_RANGE then
-					if not firstLockStarted then
-						firstLockStarted = true
-						firstLockStartTime = os.clock()
-					end
+					local currentOffset = myRoot.Position - targetPosition
+					local difference = CHROLLO_TARGET_OFFSET - currentOffset
 
-					if os.clock() - firstLockStartTime <= CHROLLO_LOCK_ACTIVE_TIME then
-						shouldLock = true
+					if difference.Magnitude <= CHROLLO_STEP_SIZE then
+						lockedOnHead = true
+						myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
 					else
-						firstLockEnded = true
-						lockedOnHead = false
+						local newOffset = currentOffset + difference.Unit * CHROLLO_STEP_SIZE
+						local newPosition = targetPosition + newOffset
+
+						myRoot.CFrame = safeFacingCFrame(newPosition, targetRoot)
 					end
+
+		local goal = CFrame.new(goalPosition, goalPosition + look)
+					myRoot.AssemblyLinearVelocity = Vector3.zero
+					myRoot.AssemblyAngularVelocity = Vector3.zero
 				end
 			end
-		end
 
-		if shouldLock then
-			lockedOnHead, lastStepTime = doSmoothLockStep(myRoot, targetRoot, lockedOnHead, lastStepTime)
+		myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
+			task.wait()
 		else
+			-- Once reached, stop slow stepping and lock normally every frame
+			myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
+
+		myRoot.AssemblyLinearVelocity = Vector3.zero
+		myRoot.AssemblyAngularVelocity = Vector3.zero
+			myRoot.AssemblyLinearVelocity = Vector3.zero
+			myRoot.AssemblyAngularVelocity = Vector3.zero
+
+		RunService.Heartbeat:Wait()
 			RunService.Heartbeat:Wait()
 		end
 	end
