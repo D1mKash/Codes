@@ -19,14 +19,18 @@ local chrolloToken = 0
 -- SETTINGS
 ------------------------------------------------
 
-local CHROLLO_START_DELAY = 1
 local CHROLLO_RANGE = 8
-local CHROLLO_HEIGHT = 5
-local CHROLLO_LERP_ALPHA = 0.175
-local CHROLLO_STOP_AFTER_GONE = 1
+local CHROLLO_START_DELAY = 1
 
-local BLUE_BACK_DISTANCE = 2
-local BLUE_RANGE = 5
+-- Move toward this relative offset first
+local CHROLLO_LOCK_START_RANGE = 5
+local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
+local CHROLLO_STEP_SIZE = 0.1
+local CHROLLO_STEP_INTERVAL = 0.01
+local CHROLLO_STOP_AFTER_GONE = 0.5
+
+local BLUE_BACK_DISTANCE = 1
+local BLUE_RANGE = 8
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -62,6 +66,25 @@ local function leftClick(duration)
 		task.wait(duration or 0.05)
 		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 	end)
+end
+
+local function horizontalDistance(a, b)
+	local aa = Vector3.new(a.X, 0, a.Z)
+	local bb = Vector3.new(b.X, 0, b.Z)
+	return (aa - bb).Magnitude
+end
+
+local function safeFacingCFrame(position, targetRoot)
+	local look = targetRoot.CFrame.LookVector
+	look = Vector3.new(look.X, 0, look.Z)
+
+	if look.Magnitude < 0.05 then
+		look = Vector3.new(0, 0, -1)
+	else
+		look = look.Unit
+	end
+
+	return CFrame.new(position, position + look)
 end
 
 ------------------------------------------------
@@ -148,7 +171,7 @@ local function lift()
 end
 
 ------------------------------------------------
--- LOCK ABOVE TARGET HEAD
+-- STEP TO OFFSET, THEN NORMAL LOCK
 ------------------------------------------------
 
 local function smoothFollowAboveTarget(targetModel)
@@ -161,6 +184,8 @@ local function smoothFollowAboveTarget(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local lastSawChrolloStop = os.clock()
+	local lockedOnHead = false
+	local lastStepTime = 0
 
 	while running do
 		char = getCharacter()
@@ -179,32 +204,44 @@ local function smoothFollowAboveTarget(targetModel)
 			end
 		end
 
-		-- Match target X/Z, stay above them on Y
-		local targetPos = targetRoot.Position
-		local goalPosition = Vector3.new(
-			targetPos.X,
-			targetPos.Y + CHROLLO_HEIGHT,
-			targetPos.Z
-		)
+		local targetPosition = targetRoot.Position
+		local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
 
-		-- Face same horizontal direction as the target
-		local look = targetRoot.CFrame.LookVector
-		look = Vector3.new(look.X, 0, look.Z)
+		if not lockedOnHead then
+			local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
 
-		if look.Magnitude < 0.05 then
-			look = Vector3.new(0, 0, -1)
+			if horizontalDist <= CHROLLO_LOCK_START_RANGE then
+				if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
+					lastStepTime = os.clock()
+
+					local currentOffset = myRoot.Position - targetPosition
+					local difference = CHROLLO_TARGET_OFFSET - currentOffset
+
+					if difference.Magnitude <= CHROLLO_STEP_SIZE then
+						lockedOnHead = true
+						myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
+					else
+						local newOffset = currentOffset + difference.Unit * CHROLLO_STEP_SIZE
+						local newPosition = targetPosition + newOffset
+
+						myRoot.CFrame = safeFacingCFrame(newPosition, targetRoot)
+					end
+
+					myRoot.AssemblyLinearVelocity = Vector3.zero
+					myRoot.AssemblyAngularVelocity = Vector3.zero
+				end
+			end
+
+			task.wait()
 		else
-			look = look.Unit
+			-- Once reached, stop slow stepping and lock normally every frame
+			myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
+
+			myRoot.AssemblyLinearVelocity = Vector3.zero
+			myRoot.AssemblyAngularVelocity = Vector3.zero
+
+			RunService.Heartbeat:Wait()
 		end
-
-		local goal = CFrame.new(goalPosition, goalPosition + look)
-
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, CHROLLO_LERP_ALPHA)
-
-		myRoot.AssemblyLinearVelocity = Vector3.zero
-		myRoot.AssemblyAngularVelocity = Vector3.zero
-
-		RunService.Heartbeat:Wait()
 	end
 end
 
