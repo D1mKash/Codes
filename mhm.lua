@@ -7,9 +7,67 @@ local _0x15=false local _0x16=nil
 local _0x17=workspace:WaitForChild("Live")
 local _0x18=false local _0x19=0
 
+local _0x92=0
+local _0x93=nil
+
 local function _0x20(_0x21)
 _0x4:SendKeyEvent(true,_0x21,false,_0x1)
 _0x4:SendKeyEvent(false,_0x21,false,_0x1)
+end
+
+local function _0x94()
+local _0x95=_0x14 or (_0x7.Character and _0x7.Character:FindFirstChildOfClass("Humanoid"))
+if not _0x95 then return end
+
+_0x92=_0x92+1
+local _0x96=_0x92
+
+if not _0x93 or _0x93.h~=_0x95 then
+_0x93={
+h=_0x95,
+jp=_0x95.JumpPower,
+jh=_0x95.JumpHeight,
+ujp=_0x95.UseJumpPower
+}
+end
+
+pcall(function()
+_0x95:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
+_0x95.Jump=false
+_0x95.JumpPower=0
+_0x95.JumpHeight=0
+end)
+
+task.delay(3,function()
+if _0x96~=_0x92 then return end
+local _0x97=_0x93
+_0x93=nil
+
+if _0x97 and _0x97.h and _0x97.h.Parent then
+pcall(function()
+_0x97.h.UseJumpPower=_0x97.ujp
+_0x97.h.JumpPower=_0x97.jp
+_0x97.h.JumpHeight=_0x97.jh
+_0x97.h:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
+end)
+end
+end)
+end
+
+local function _0x98()
+_0x92=_0x92+1
+
+local _0x97=_0x93
+_0x93=nil
+
+if _0x97 and _0x97.h and _0x97.h.Parent then
+pcall(function()
+_0x97.h.UseJumpPower=_0x97.ujp
+_0x97.h.JumpPower=_0x97.jp
+_0x97.h.JumpHeight=_0x97.jh
+_0x97.h:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
+end)
+end
 end
 
 local function _0x22()
@@ -192,6 +250,7 @@ end
 if _0x46.KeyCode==Enum.KeyCode.X then
 if _0x49 then _0x20(Enum.KeyCode.F)end
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
+_0x94()
 task.delay(1.2,function()
 _0x71("KyokaInvis",true,2)
 end)
@@ -248,6 +307,8 @@ if _0x9 then _0x9:Disconnect()_0x9=nil end
 if _0x10 then _0x10:Disconnect()_0x10=nil end
 if _0x11 then _0x11:Disconnect()_0x11=nil end
 if _0x12 then _0x12:Disconnect()_0x12=nil end
+
+_0x98()
 
 _0x14=nil _0x15=false _0x16=nil _0x18=false
 end
