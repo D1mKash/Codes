@@ -22,9 +22,10 @@ local chrolloToken = 0
 local CHROLLO_RANGE = 8
 local CHROLLO_START_DELAY = 2.25
 
--- Move toward this relative offset first
+-- Move toward this target position first
 local CHROLLO_LOCK_START_RANGE = 4
-local CHROLLO_TARGET_OFFSET = Vector3.new(0, 5, 0)
+local CHROLLO_HEIGHT = 5
+local CHROLLO_BACK_DISTANCE = 2
 local CHROLLO_STEP_SIZE = 0.08
 local CHROLLO_STEP_INTERVAL = 0.01
 local CHROLLO_STOP_AFTER_GONE = 0.4
@@ -85,6 +86,11 @@ local function safeFacingCFrame(position, targetRoot)
 	end
 
 	return CFrame.new(position, position + look)
+end
+
+local function getChrolloLockPosition(targetRoot)
+	-- 5 studs above, 2 studs behind target
+	return (targetRoot.CFrame * CFrame.new(0, CHROLLO_HEIGHT, CHROLLO_BACK_DISTANCE)).Position
 end
 
 ------------------------------------------------
@@ -205,7 +211,7 @@ local function smoothFollowAboveTarget(targetModel)
 		end
 
 		local targetPosition = targetRoot.Position
-		local desiredPosition = targetPosition + CHROLLO_TARGET_OFFSET
+		local desiredPosition = getChrolloLockPosition(targetRoot)
 
 		if not lockedOnHead then
 			local horizontalDist = horizontalDistance(myRoot.Position, targetPosition)
@@ -214,16 +220,13 @@ local function smoothFollowAboveTarget(targetModel)
 				if os.clock() - lastStepTime >= CHROLLO_STEP_INTERVAL then
 					lastStepTime = os.clock()
 
-					local currentOffset = myRoot.Position - targetPosition
-					local difference = CHROLLO_TARGET_OFFSET - currentOffset
+					local difference = desiredPosition - myRoot.Position
 
 					if difference.Magnitude <= CHROLLO_STEP_SIZE then
 						lockedOnHead = true
 						myRoot.CFrame = safeFacingCFrame(desiredPosition, targetRoot)
 					else
-						local newOffset = currentOffset + difference.Unit * CHROLLO_STEP_SIZE
-						local newPosition = targetPosition + newOffset
-
+						local newPosition = myRoot.Position + difference.Unit * CHROLLO_STEP_SIZE
 						myRoot.CFrame = safeFacingCFrame(newPosition, targetRoot)
 					end
 
