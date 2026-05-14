@@ -29,7 +29,7 @@ local CHROLLO_STEP_SIZE = 0.08
 local CHROLLO_STEP_INTERVAL = 0.01
 local CHROLLO_STOP_AFTER_GONE = 0.4
 
-local BLUE_BACK_DISTANCE = 1
+local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
 ------------------------------------------------
