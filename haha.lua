@@ -334,7 +334,7 @@ local function useBlueBuff()
 	if teleported then
 		leftClick(0.05)
 
-		task.wait(0.1)
+		task.wait(0.3)
 		pressKey(Enum.KeyCode.Three)
 	end
 end
