@@ -317,7 +317,14 @@ local function teleportBehindNearest()
 end
 
 local function useBlueBuff()
-	if not hasInCharacter("BlueBuff") then return end
+	if not hasInCharacter("BlueBuff") then
+		pressKey(Enum.KeyCode.Three)
+		task.wait(0.1)
+
+		if not hasInCharacter("BlueBuff") then
+			return
+		end
+	end
 
 	pressKey(Enum.KeyCode.Q)
 	task.wait(0.05)
@@ -326,6 +333,9 @@ local function useBlueBuff()
 
 	if teleported then
 		leftClick(0.05)
+
+		task.wait(0.1)
+		pressKey(Enum.KeyCode.Three)
 	end
 end
 
