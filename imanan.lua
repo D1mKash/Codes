@@ -1,79 +1,112 @@
-local _0xA={}local _0x1=nil
-
-local function _0x2(_0x3)
-local _0x4=game:GetService("Players").LocalPlayer
-local _0x5=_0x4:FindFirstChild("Backpack")if not _0x5 then return false end
-
-local _0x6=_0x5:FindFirstChild(_0x3)
-if not _0x6 or not _0x6:IsA("Configuration")then return false end
-
-local _0x7=_0x6:GetAttribute("COOLDOWN")
-if _0x7==nil or _0x7==20 then return true end
-
-return false
-end
+local _0xA = {}
+local _0x1 = nil -- Stores all event connections
+local _0x20 = 0 -- Cancellation token for active threads
 
 function _0xA.Start()
-local _0x8=game:GetService("UserInputService")
-local _0x9=game:GetService("RunService")
-local _0x10=game:GetService("VirtualInputManager")
-local _0x11=game:GetService("Workspace")
+    local Players = game:GetService("Players")
+    local VIM = game:GetService("VirtualInputManager")
+    local Workspace = game:GetService("Workspace")
+    local Live = Workspace:WaitForChild("Live")
+    local plr = Players.LocalPlayer
 
-local _0x12=_0x11:WaitForChild("Live")
+    local backpack = plr:FindFirstChild("Backpack")
+    if not backpack then
+        backpack = plr:WaitForChild("Backpack") -- Wait for it if not loaded
+    end
 
-local function _0x13()
-_0x10:SendMouseButtonEvent(0,0,0,true,game,0)
-_0x10:SendMouseButtonEvent(0,0,0,false,game,0)
-end
+    -- The core logic: wait for the Nanami Cut GUI and click the bar at 0.7
+    local function triggerCut()
+        -- Cancel any previously running cut watcher (prevents spam/multiple clicks)
+        _0x20 = _0x20 + 1
+        local myToken = _0x20
 
-_0x1=_0x8.InputBegan:Connect(function(_0x14,_0x15)
-if _0x15 then return end
+        task.spawn(function()
+            local cutter = nil
+            local cutGUI = Live:FindFirstChild("NanamiCutGUI")
 
-local _0x16=nil
+            if cutGUI then
+                local mainBar = cutGUI:FindFirstChild("MainBar")
+                if mainBar then
+                    cutter = mainBar:FindFirstChild("Cutter")
+                end
+            end
 
-if _0x14.KeyCode==Enum.KeyCode.One then
-_0x16="Bisecting Slash"
-elseif _0x14.KeyCode==Enum.KeyCode.Two then
-_0x16="7:3 Combo"
-elseif _0x14.KeyCode==Enum.KeyCode.Three then
-_0x16="Hair Grab"
-elseif _0x14.KeyCode==Enum.KeyCode.Four then
-_0x16="Retirement Kick"
-end
+            -- If the GUI isn't there yet, wait for it (max 1.5 seconds)
+            local timeout = tick() + 1.5
+            while not cutter and tick() < timeout do
+                if myToken ~= _0x20 then return end -- Canceled by a new ability use
+                cutGUI = Live:FindFirstChild("NanamiCutGUI")
+                if cutGUI then
+                    local mainBar = cutGUI:FindFirstChild("MainBar")
+                    if mainBar then
+                        cutter = mainBar:FindFirstChild("Cutter")
+                    end
+                end
+                task.wait(0.05) -- ~20 checks/second, uses 0% CPU
+            end
 
-if not _0x16 then return end
-if not _0x2(_0x16)then return end
+            if not cutter then return end
 
-local _0x17
+            -- Wait for the bar to reach 0.7
+            while cutter and cutter.Position.X.Scale < 0.7 do
+                if myToken ~= _0x20 then return end -- Canceled
+                task.wait(0.05)
+            end
 
-local _0x18
-_0x18=_0x12.DescendantAdded:Connect(function(_0x19)
-if _0x19.Name~="NanamiCutGUI"then return end
+            -- Click the cutter!
+            if cutter and cutter.Position.X.Scale >= 0.7 then
+                VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.05)
+                VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end
+        end)
+    end
 
-local _0x1A=_0x19:FindFirstChild("MainBar")
-local _0x1B=_0x1A and _0x1A:FindFirstChild("Cutter")
+    -- List of Nanami's abilities (exactly as named in the Backpack)
+    local abilityNames = {"Bisecting Slash", "7:3 Combo", "Hair Grab", "Retirement Kick"}
+    local connections = {}
 
-if _0x1B then
-_0x17=_0x1B
-_0x18:Disconnect()
-end
-end)
+    for _, name in ipairs(abilityNames) do
+        local config = backpack:FindFirstChild(name)
 
-local _0x1C
-_0x1C=_0x9.Heartbeat:Connect(function()
-if not _0x17 then return end
+        if config and config:IsA("Configuration") then
+            -- Store the current cooldown value (default to 20 if missing)
+            local lastValue = config:GetAttribute("COOLDOWN")
+            if lastValue == nil then lastValue = 20 end
 
-if _0x17.Position.X.Scale>=0.7 then
-_0x13()
-_0x1C:Disconnect()
-end
-end)
+            -- Listen for cooldown changes
+            local conn = config:GetAttributeChangedSignal("COOLDOWN"):Connect(function()
+                local newValue = config:GetAttribute("COOLDOWN")
 
-end)
+                -- If it was READY (20) and NOW it's ON COOLDOWN (< 20), the move just fired!
+                if lastValue == 20 and newValue ~= nil and newValue < 20 then
+                    triggerCut() -- Start the Nanami Cut sequence
+                end
+
+                -- Update the stored value for the next change
+                lastValue = newValue
+            end)
+
+            table.insert(connections, conn)
+        else
+            warn("[Nanami] Could not find ability in Backpack:", name)
+        end
+    end
+
+    _0x1 = connections
 end
 
 function _0xA.Stop()
-if _0x1 then _0x1:Disconnect()_0x1=nil end
+    -- Disconnect all attribute listeners
+    if _0x1 then
+        for _, conn in ipairs(_0x1) do
+            if conn then pcall(conn.Disconnect, conn) end
+        end
+        _0x1 = nil
+    end
+
+    -- Increment token to instantly kill any waiting threads
+    _0x20 = _0x20 + 1
 end
 
 return _0xA
