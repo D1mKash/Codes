@@ -110,23 +110,38 @@ task.wait(0.1)
 _0x4:SendMouseButtonEvent(0,0,0,false,_0x1,0)
 end
 
+-- ============================================================
+-- FIX 1: Auto-guard break now checks if YOU are blocking.
+-- If you are blocking, it cancels. No more F tap.
+-- ============================================================
 local function _0x34()
 if _0x18 then return end
-_0x18=true
+_0x18 = true
 
-local _0x35=_0x17:FindFirstChild(_0x7.Name)
-if _0x35 then
-local _0x36=_0x35:FindFirstChild("Blocking")
-if _0x36 and _0x36.Value==true then
-_0x31(Enum.KeyCode.F,0.05)
-end
+-- Check if WE (the local player) are currently holding block
+local myModel = _0x17:FindFirstChild(_0x7.Name)
+local amIBlocking = false
+if myModel then
+    local myBlocking = myModel:FindFirstChild("Blocking")
+    if myBlocking and myBlocking.Value == true then
+        amIBlocking = true
+    end
 end
 
+-- If we ARE blocking, DO NOT use the ability. Just reset and exit.
+if amIBlocking then
+    _0x18 = false
+    return
+end
+
+-- (REMOVED the F tap entirely: no more _0x31(Enum.KeyCode.F,0.05) )
+
+-- Execute the guard-break combo
 _0x20(Enum.KeyCode.LeftShift)
 _0x20(Enum.KeyCode.One)
 _0x20(Enum.KeyCode.LeftShift)
 
-task.delay(1,function()_0x18=false end)
+task.delay(1, function() _0x18 = false end)
 end
 
 local function _0x37()
@@ -228,6 +243,9 @@ _0x75.AssemblyAngularVelocity=Vector3.zero
 if _0x73 then _0x90()end
 end
 
+-- ============================================================
+-- FIX 2: Removed the forced F-tap from Z, X, and C keybinds.
+-- ============================================================
 local function _0x45()
 _0x12=_0x6.InputBegan:Connect(function(_0x46,_0x47)
 if _0x47 then return end
@@ -240,7 +258,7 @@ if _0x50 and _0x50.Value==true then _0x49=true end
 end
 
 if _0x46.KeyCode==Enum.KeyCode.Z then
-if _0x49 then _0x20(Enum.KeyCode.F)end
+-- (removed F tap: if _0x49 then _0x20(Enum.KeyCode.F) end)
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.One)
 task.delay(1.2,function()
 _0x71("KyokaInvisingggg",false,-1)
@@ -248,7 +266,7 @@ end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.X then
-if _0x49 then _0x20(Enum.KeyCode.F)end
+-- (removed F tap: if _0x49 then _0x20(Enum.KeyCode.F) end)
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
 _0x94()
 task.delay(1.2,function()
@@ -257,7 +275,7 @@ end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.C then
-if _0x49 then _0x20(Enum.KeyCode.F)end
+-- (removed F tap: if _0x49 then _0x20(Enum.KeyCode.F) end)
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Two)
 end
 end)
