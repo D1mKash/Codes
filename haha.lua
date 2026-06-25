@@ -24,7 +24,7 @@ local CHROLLO_START_DELAY = 2.25
 
 -- Move toward this target position first
 local CHROLLO_LOCK_START_RANGE = 4
-local CHROLLO_HEIGHT = 3
+local CHROLLO_HEIGHT = 5
 local CHROLLO_BACK_DISTANCE = 0
 local CHROLLO_STEP_SIZE = 0.08
 local CHROLLO_STEP_INTERVAL = 0.01
