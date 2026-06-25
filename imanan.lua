@@ -1,9 +1,8 @@
-local _0xA = {}
-local _0x1 = nil        -- Input listener
-local _0x21 = nil       -- Active cooldown listener
-local _0x20 = 0         -- Cancellation token for GUI scanning threads
+local module = {}
+local inputConnection = nil
+local currentToken = 0
 
-function _0xA.Start()
+function module.Start()
     local Players = game:GetService("Players")
     local UIS = game:GetService("UserInputService")
     local VIM = game:GetService("VirtualInputManager")
@@ -11,128 +10,89 @@ function _0xA.Start()
     local Live = Workspace:WaitForChild("Live")
     local plr = Players.LocalPlayer
 
-    local backpack = plr:FindFirstChild("Backpack")
-    if not backpack then backpack = plr:WaitForChild("Backpack") end
+    local function isAbilityReady(abilityName)
+        local backpack = plr:FindFirstChild("Backpack")
+        if not backpack then return false end
+        local config = backpack:FindFirstChild(abilityName)
+        if not config or not config:IsA("Configuration") then return false end
+        local cooldown = config:GetAttribute("COOLDOWN")
+        if cooldown == nil or cooldown == 20 then
+            return true
+        end
+        return false
+    end
 
-    -- Mapping keys to ability names (exactly as in Backpack)
-    local abilityMap = {
-        [Enum.KeyCode.One] = "Bisecting Slash",
-        [Enum.KeyCode.Two] = "7:3 Combo",
-        [Enum.KeyCode.Three] = "Hair Grab",
-        [Enum.KeyCode.Four] = "Retirement Kick",
-    }
+    local function clickMouse()
+        VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.05)
+        VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
 
-    -- The core logic: wait for Nanami Cut GUI and click at 0.7
-    local function triggerCut()
-        -- Cancel any previous scanning thread
-        _0x20 = _0x20 + 1
-        local myToken = _0x20
+    inputConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+
+        local abilityName = nil
+        if input.KeyCode == Enum.KeyCode.One then abilityName = "Bisecting Slash"
+        elseif input.KeyCode == Enum.KeyCode.Two then abilityName = "7:3 Combo"
+        elseif input.KeyCode == Enum.KeyCode.Three then abilityName = "Hair Grab"
+        elseif input.KeyCode == Enum.KeyCode.Four then abilityName = "Retirement Kick"
+        end
+
+        if not abilityName then return end
+        if not isAbilityReady(abilityName) then return end
+
+        -- Generate a unique token for this execution to cancel old ones
+        currentToken = currentToken + 1
+        local myToken = currentToken
 
         task.spawn(function()
+            -- Find the Cutter GUI
             local cutter = nil
             local cutGUI = Live:FindFirstChild("NanamiCutGUI")
-
             if cutGUI then
                 local mainBar = cutGUI:FindFirstChild("MainBar")
-                if mainBar then cutter = mainBar:FindFirstChild("Cutter") end
+                if mainBar then
+                    cutter = mainBar:FindFirstChild("Cutter")
+                end
             end
 
-            -- Wait for the GUI to appear (max 2 seconds)
+            -- If not found, wait for it (timeout after 2 seconds)
             local timeout = tick() + 2
             while not cutter and tick() < timeout do
-                if myToken ~= _0x20 then return end -- Canceled
+                if myToken ~= currentToken then return end -- Cancelled by a new key press
+
                 cutGUI = Live:FindFirstChild("NanamiCutGUI")
                 if cutGUI then
                     local mainBar = cutGUI:FindFirstChild("MainBar")
-                    if mainBar then cutter = mainBar:FindFirstChild("Cutter") end
+                    if mainBar then
+                        cutter = mainBar:FindFirstChild("Cutter")
+                    end
                 end
-                task.wait(0.05)
+                task.wait(0.05) -- Check every 50ms
             end
 
             if not cutter then return end
 
-            -- Wait for the bar to reach 0.7
+            -- Wait for the cutter to reach the threshold
             while cutter and cutter.Position.X.Scale < 0.7 do
-                if myToken ~= _0x20 then return end
-                task.wait(0.05)
+                if myToken ~= currentToken then return end -- Cancelled
+                task.wait(0.05) -- Check every 50ms instead of every frame
             end
 
-            -- Click!
             if cutter and cutter.Position.X.Scale >= 0.7 then
-                VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.05)
-                VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end
-        end)
-    end
-
-    -- Cancels any ongoing "waiting for cooldown" listener
-    local function cancelCooldownWatcher()
-        if _0x21 then
-            pcall(_0x21.Disconnect, _0x21)
-            _0x21 = nil
-        end
-    end
-
-    -- Input listener
-    _0x1 = UIS.InputBegan:Connect(function(input, gp)
-        if gp then return end
-
-        local abilityName = abilityMap[input.KeyCode]
-        if not abilityName then return end
-
-        -- Find the ability config in backpack
-        local config = backpack:FindFirstChild(abilityName)
-        if not config or not config:IsA("Configuration") then return end
-
-        local currentCooldown = config:GetAttribute("COOLDOWN")
-
-        -- Only proceed if the move is ready (cooldown == 20 or nil)
-        if currentCooldown ~= 20 and currentCooldown ~= nil then return end
-
-        -- Cancel any previous cooldown watcher (prevents multiple listeners)
-        cancelCooldownWatcher()
-
-        -- Now listen for the cooldown to DROP (confirmation the move fired)
-        local listenerToken = _0x20 + 1 -- Unique token for this specific watcher
-        _0x21 = config:GetAttributeChangedSignal("COOLDOWN"):Connect(function()
-            local newCooldown = config:GetAttribute("COOLDOWN")
-
-            -- If cooldown dropped (from 20 to anything < 20), the move is confirmed!
-            if newCooldown ~= nil and newCooldown < 20 then
-                -- Disconnect this listener immediately
-                cancelCooldownWatcher()
-                -- Now start scanning for the Nanami Cut GUI
-                triggerCut()
-            end
-        end)
-
-        -- Safety net: if the cooldown doesn't drop within 3 seconds, kill the listener
-        task.delay(3, function()
-            -- Only kill if this specific listener is still active
-            if _0x21 then
-                pcall(_0x21.Disconnect, _0x21)
-                _0x21 = nil
+                clickMouse()
             end
         end)
     end)
 end
 
-function _0xA.Stop()
-    -- Disconnect input listener
-    if _0x1 then
-        pcall(_0x1.Disconnect, _0x1)
-        _0x1 = nil
+function module.Stop()
+    if inputConnection then
+        inputConnection:Disconnect()
+        inputConnection = nil
     end
-
-    -- Disconnect cooldown watcher
-    if _0x21 then
-        pcall(_0x21.Disconnect, _0x21)
-        _0x21 = nil
-    end
-
-    -- Increment token to kill any active GUI scanning threads
-    _0x20 = _0x20 + 1
+    -- Increment token to cancel any pending spawns
+    currentToken = currentToken + 1
 end
 
-return _0xA
+return module
