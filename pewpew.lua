@@ -74,16 +74,17 @@ local function onAnimationPlayed(animTrack)
     -- --- PRESS 1 (Socom) ---
     if animId == "rbxassetid://128980851549763" or
        animId == "rbxassetid://122609664088954" or
+       animId == "rbxassetid://133959142839156" or
        animId == "rbxassetid://75267484294449" then
 
         if hasToolInBackpack("Socom") and isEnemyNearby(15) then
             pressKey(Enum.KeyCode.One)
         end
 
-    -- --- PRESS 1 with 0.5s delay ---
+    -- --- PRESS 1 with 0.44s delay ---
     elseif animId == "rbxassetid://1461145506" then
         if hasToolInBackpack("Socom") and isEnemyNearby(15) then
-            task.delay(0.5, function()
+            task.delay(0.44, function()
                 pressKey(Enum.KeyCode.One)
             end)
         end
