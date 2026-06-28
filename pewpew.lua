@@ -1,54 +1,59 @@
 local module = {}
 
--- Services
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
 local plr = Players.LocalPlayer
 
--- Internal state
 local connections = {}
 
--- Simulates a key press (1 or 2) with 0.01s hold
+-- Press a key with a very short hold
 local function pressKey(key)
     VIM:SendKeyEvent(true, key, false, game)
     task.wait(0.01)
     VIM:SendKeyEvent(false, key, false, game)
 end
 
--- Checks if a specific tool is in the player's Backpack
+-- Check if a tool is in the backpack
 local function hasToolInBackpack(toolName)
     local backpack = plr:FindFirstChild("Backpack")
     if not backpack then return false end
     return backpack:FindFirstChild(toolName) ~= nil
 end
 
--- Checks if any enemy (non-teammate) is within range (15 studs) using workspace.Live
+-- Check if any enemy (or dummy) is within range
 local function isEnemyNearby(range)
     local char = plr.Character
     if not char then return false end
 
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    -- Get the player's root part (try HumanoidRootPart, fallback to Torso for R6)
+    local rootPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
     if not rootPart then return false end
 
+    -- Wait for Live folder to exist (it may load later)
     local live = Workspace:FindFirstChild("Live")
-    if not live then return false end
+    if not live then
+        live = Workspace:WaitForChild("Live", 2) -- wait up to 2 seconds
+        if not live then return false end
+    end
 
-    for _, model in ipairs(live:GetChildren()) do
-        -- Skip non-models or invalid objects
+    for _, model in pairs(live:GetChildren()) do
         if not model:IsA("Model") then continue end
 
-        -- Skip ourselves
+        -- Skip self
         if model == char then continue end
 
-        -- Check if this model belongs to a teammate
+        -- Skip teammates (if they are actual Players)
         local player = Players:FindFirstChild(model.Name)
         if player and plr.Team and player.Team and player.Team == plr.Team then
-            continue -- Skip teammate
+            continue
         end
 
-        -- Check distance
-        local otherRoot = model:FindFirstChild("HumanoidRootPart")
+        -- Check if the model has a Humanoid (to ensure it's a character)
+        if not model:FindFirstChildOfClass("Humanoid") then continue end
+
+        -- Get the opponent's root part (HumanoidRootPart or Torso)
+        local otherRoot = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso")
         if otherRoot then
             local dist = (otherRoot.Position - rootPart.Position).Magnitude
             if dist <= range then
@@ -56,20 +61,17 @@ local function isEnemyNearby(range)
             end
         end
     end
-
     return false
 end
 
--- Handles animation playback
+-- Called when an animation plays on the character
 local function onAnimationPlayed(animTrack)
     if not animTrack or not animTrack.Animation then return end
 
     local animId = animTrack.Animation.AnimationId
     if not animId then return end
 
-    -- ============================================================
-    -- PRESS 1 (Socom) - Immediate triggers
-    -- ============================================================
+    -- --- PRESS 1 (Socom) ---
     if animId == "rbxassetid://128980851549763" or
        animId == "rbxassetid://122609664088954" or
        animId == "rbxassetid://75267484294449" then
@@ -78,29 +80,23 @@ local function onAnimationPlayed(animTrack)
             pressKey(Enum.KeyCode.One)
         end
 
-    -- ============================================================
-    -- PRESS 1 (Socom) - 0.3s delay trigger
-    -- ============================================================
+    -- --- PRESS 1 with 0.3s delay ---
     elseif animId == "rbxassetid://1461145506" then
-
         if hasToolInBackpack("Socom") and isEnemyNearby(15) then
             task.delay(0.3, function()
                 pressKey(Enum.KeyCode.One)
             end)
         end
 
-    -- ============================================================
-    -- PRESS 2 (Nikita / Stinger) - Immediate trigger
-    -- ============================================================
+    -- --- PRESS 2 (Nikita / Stinger) ---
     elseif animId == "rbxassetid://1461252313" then
-
         if (hasToolInBackpack("Nikita") or hasToolInBackpack("Stinger")) and isEnemyNearby(15) then
             pressKey(Enum.KeyCode.Two)
         end
     end
 end
 
--- Connects to a character's Humanoid (waits for it to exist)
+-- Connect to a character's Humanoid
 local function connectToCharacter(char)
     if not char then return end
 
@@ -114,25 +110,18 @@ local function connectToCharacter(char)
     table.insert(connections, conn)
 end
 
--- Called when the player respawns
 local function onCharacterAdded(char)
     connectToCharacter(char)
 end
 
-------------------------------------------------
--- PUBLIC METHODS (for ABAGui)
-------------------------------------------------
-
+-- Public methods
 function module.Start()
-    -- Clear any old connections just in case
     module.Stop()
 
-    -- If the character already exists, connect to it
     if plr.Character then
         connectToCharacter(plr.Character)
     end
 
-    -- Listen for future respawns
     local charConn = plr.CharacterAdded:Connect(onCharacterAdded)
     table.insert(connections, charConn)
 end
