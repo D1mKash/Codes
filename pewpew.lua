@@ -7,17 +7,11 @@ local plr = Players.LocalPlayer
 
 -- Internal state
 local connections = {}
-local lastPressTime = 0
-local PRESS_COOLDOWN = 0.05 -- Prevents spamming if animations fire rapidly
 
--- Simulates a key press (1 or 2)
+-- Simulates a key press (1 or 2) with 0.01s hold
 local function pressKey(key)
-    local now = tick()
-    if now - lastPressTime < PRESS_COOLDOWN then return end
-    lastPressTime = now
-
     VIM:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
+    task.wait(0.01)
     VIM:SendKeyEvent(false, key, false, game)
 end
 
@@ -35,7 +29,7 @@ local function onAnimationPlayed(animTrack)
     local animId = animTrack.Animation.AnimationId
     if not animId then return end
 
-    -- Check for Socom animations (press 1)
+    -- === PRESS 1 (Immediate) ===
     if animId == "rbxassetid://128980851549763" or
        animId == "rbxassetid://122609664088954" or
        animId == "rbxassetid://75267484294449" then
@@ -44,7 +38,16 @@ local function onAnimationPlayed(animTrack)
             pressKey(Enum.KeyCode.One)
         end
 
-    -- Check for Nikita/Stinger animation (press 2)
+    -- === PRESS 1 (with 0.2s delay) ===
+    elseif animId == "rbxassetid://1461145506" then
+
+        if hasToolInBackpack("Socom") then
+            task.delay(0.2, function()
+                pressKey(Enum.KeyCode.One)
+            end)
+        end
+
+    -- === PRESS 2 (Immediate) ===
     elseif animId == "rbxassetid://1461252313" then
 
         if hasToolInBackpack("Nikita") or hasToolInBackpack("Stinger") then
@@ -53,11 +56,15 @@ local function onAnimationPlayed(animTrack)
     end
 end
 
--- Connects to a character's Humanoid
+-- Connects to a character's Humanoid (waits for it to exist)
 local function connectToCharacter(char)
     if not char then return end
 
+    -- Wait for the Humanoid to load (fixes respawn issue)
     local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        humanoid = char:WaitForChild("Humanoid", 5) -- Wait up to 5 seconds
+    end
     if not humanoid then return end
 
     local conn = humanoid.AnimationPlayed:Connect(onAnimationPlayed)
@@ -94,7 +101,6 @@ function module.Stop()
         end
     end
     connections = {}
-    lastPressTime = 0
 end
 
 return module
