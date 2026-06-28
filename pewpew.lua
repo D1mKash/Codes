@@ -22,6 +22,36 @@ local function hasToolInBackpack(toolName)
     return backpack:FindFirstChild(toolName) ~= nil
 end
 
+-- Checks if any enemy (non-teammate) is within range (15 studs)
+local function isEnemyNearby(range)
+    local char = plr.Character
+    if not char then return false end
+
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= plr then
+            -- Skip teammates (same team check as mhm.lua)
+            if plr.Team and otherPlayer.Team and otherPlayer.Team == plr.Team then
+                -- Skip teammate
+            else
+                local otherChar = otherPlayer.Character
+                if otherChar then
+                    local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                    if otherRoot then
+                        local dist = (otherRoot.Position - rootPart.Position).Magnitude
+                        if dist <= range then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
 -- Handles animation playback
 local function onAnimationPlayed(animTrack)
     if not animTrack or not animTrack.Animation then return end
@@ -34,15 +64,15 @@ local function onAnimationPlayed(animTrack)
        animId == "rbxassetid://122609664088954" or
        animId == "rbxassetid://75267484294449" then
 
-        if hasToolInBackpack("Socom") then
+        if hasToolInBackpack("Socom") and isEnemyNearby(15) then
             pressKey(Enum.KeyCode.One)
         end
 
-    -- === PRESS 1 (with 0.2s delay) ===
+    -- === PRESS 1 (with 0.3s delay) ===
     elseif animId == "rbxassetid://1461145506" then
 
-        if hasToolInBackpack("Socom") then
-            task.delay(0.2, function()
+        if hasToolInBackpack("Socom") and isEnemyNearby(15) then
+            task.delay(0.3, function()
                 pressKey(Enum.KeyCode.One)
             end)
         end
