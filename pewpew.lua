@@ -3,6 +3,7 @@ local module = {}
 -- Services
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
 local plr = Players.LocalPlayer
 
 -- Internal state
@@ -22,7 +23,7 @@ local function hasToolInBackpack(toolName)
     return backpack:FindFirstChild(toolName) ~= nil
 end
 
--- Checks if any enemy (non-teammate) is within range (15 studs)
+-- Checks if any enemy (non-teammate) is within range (15 studs) using workspace.Live
 local function isEnemyNearby(range)
     local char = plr.Character
     if not char then return false end
@@ -30,25 +31,32 @@ local function isEnemyNearby(range)
     local rootPart = char:FindFirstChild("HumanoidRootPart")
     if not rootPart then return false end
 
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer ~= plr then
-            -- Skip teammates (same team check as mhm.lua)
-            if plr.Team and otherPlayer.Team and otherPlayer.Team == plr.Team then
-                -- Skip teammate
-            else
-                local otherChar = otherPlayer.Character
-                if otherChar then
-                    local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
-                    if otherRoot then
-                        local dist = (otherRoot.Position - rootPart.Position).Magnitude
-                        if dist <= range then
-                            return true
-                        end
-                    end
-                end
+    local live = Workspace:FindFirstChild("Live")
+    if not live then return false end
+
+    for _, model in ipairs(live:GetChildren()) do
+        -- Skip non-models or invalid objects
+        if not model:IsA("Model") then continue end
+
+        -- Skip ourselves
+        if model == char then continue end
+
+        -- Check if this model belongs to a teammate
+        local player = Players:FindFirstChild(model.Name)
+        if player and plr.Team and player.Team and player.Team == plr.Team then
+            continue -- Skip teammate
+        end
+
+        -- Check distance
+        local otherRoot = model:FindFirstChild("HumanoidRootPart")
+        if otherRoot then
+            local dist = (otherRoot.Position - rootPart.Position).Magnitude
+            if dist <= range then
+                return true
             end
         end
     end
+
     return false
 end
 
@@ -59,7 +67,9 @@ local function onAnimationPlayed(animTrack)
     local animId = animTrack.Animation.AnimationId
     if not animId then return end
 
-    -- === PRESS 1 (Immediate) ===
+    -- ============================================================
+    -- PRESS 1 (Socom) - Immediate triggers
+    -- ============================================================
     if animId == "rbxassetid://128980851549763" or
        animId == "rbxassetid://122609664088954" or
        animId == "rbxassetid://75267484294449" then
@@ -68,7 +78,9 @@ local function onAnimationPlayed(animTrack)
             pressKey(Enum.KeyCode.One)
         end
 
-    -- === PRESS 1 (with 0.3s delay) ===
+    -- ============================================================
+    -- PRESS 1 (Socom) - 0.3s delay trigger
+    -- ============================================================
     elseif animId == "rbxassetid://1461145506" then
 
         if hasToolInBackpack("Socom") and isEnemyNearby(15) then
@@ -77,10 +89,12 @@ local function onAnimationPlayed(animTrack)
             end)
         end
 
-    -- === PRESS 2 (Immediate) ===
+    -- ============================================================
+    -- PRESS 2 (Nikita / Stinger) - Immediate trigger
+    -- ============================================================
     elseif animId == "rbxassetid://1461252313" then
 
-        if hasToolInBackpack("Nikita") or hasToolInBackpack("Stinger") then
+        if (hasToolInBackpack("Nikita") or hasToolInBackpack("Stinger")) and isEnemyNearby(15) then
             pressKey(Enum.KeyCode.Two)
         end
     end
@@ -90,10 +104,9 @@ end
 local function connectToCharacter(char)
     if not char then return end
 
-    -- Wait for the Humanoid to load (fixes respawn issue)
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid then
-        humanoid = char:WaitForChild("Humanoid", 5) -- Wait up to 5 seconds
+        humanoid = char:WaitForChild("Humanoid", 5)
     end
     if not humanoid then return end
 
