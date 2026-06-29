@@ -113,7 +113,8 @@ local function getNearestInRange()
 end
 
 -- ============================================================
--- UPDATED smoothFollow WITH SMOOTH TRANSITION
+-- FOLLOW: 4 studs above, no transition, no jump boost
+-- Total duration: 1.06 seconds
 -- ============================================================
 local function smoothFollow(targetModel)
 	local char = p.Character
@@ -124,30 +125,16 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local transitionDuration = 0.3
-	local totalDuration = 0.76
+	local totalDuration = 1.06  -- 0.76 + 0.30
 
 	while running and os.clock() - start < totalDuration do
 		if not myRoot or not myRoot.Parent then return end
 		if not targetRoot or not targetRoot.Parent then return end
 
-		local targetPos = targetRoot.Position
-		local lookVec = targetRoot.CFrame.LookVector
+		-- Stay exactly 4 studs above the target at all times
+		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
 
-		-- Transition progress (0 to 1 over 0.3 seconds)
-		local elapsed = os.clock() - start
-		local alpha = math.min(elapsed / transitionDuration, 1)
-
-		-- Start offset: 4 studs above
-		local offsetStart = Vector3.new(0, 4, 0)
-		-- End offset: 2 studs behind, 2 studs above
-		local offsetEnd = -lookVec * 2 + Vector3.new(0, 2, 0)
-
-		-- Smoothly interpolate between offsets
-		local currentOffset = offsetStart:Lerp(offsetEnd, alpha)
-		local pos = targetPos + currentOffset
-
-		-- Face the enemy horizontally
+		-- Face the enemy horizontally (ignore Y)
 		local look = targetRoot.Position - myRoot.Position
 		look = Vector3.new(look.X, 0, look.Z)
 
@@ -160,28 +147,8 @@ local function smoothFollow(targetModel)
 end
 
 ------------------------------------------------
--- ORIGINAL FUNCTIONS
+-- RESET
 ------------------------------------------------
-
-local function l()
-	local char = p.Character
-	if not char then return end
-
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
-
-	root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-
-	local t = os.clock()
-
-	task.spawn(function()
-		while running and os.clock() - t < 0.1 do
-			if not root or not root.Parent then return end
-			root.AssemblyLinearVelocity = Vector3.new(0, 32, 0)
-			R.Heartbeat:Wait()
-		end
-	end)
-end
 
 local function reset()
 	s = "D"
@@ -245,15 +212,18 @@ local function onAnimationPlayed(track)
 
 	if id == "rbxassetid://109159204999611" or id == "rbxassetid://1234" then
 
-		task.delay(0.2, function()
+		-- ============================================================
+		-- UPDATED: Wait 1.0 second before starting the follow
+		-- (Was 0.2, increased by 0.8 seconds)
+		-- ============================================================
+		task.delay(1.0, function()
 			local target = getNearestInRange()
 			if target then
 				smoothFollow(target)
 			end
 		end)
 
-		l()
-
+		-- Press Q after 0.08 seconds (unchanged)
 		task.delay(0.08, function()
 			if running then
 				comboAction()
