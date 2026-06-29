@@ -36,14 +36,6 @@ end
 
 local function comboAction()
 	pressKey(Enum.KeyCode.Q)
-
-	task.wait(0.05)
-
-	pressKey(Enum.KeyCode.Space)
-
-	task.wait(0.05)
-
-	pressKey(Enum.KeyCode.Space)
 end
 
 ------------------------------------------------
