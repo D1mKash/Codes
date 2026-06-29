@@ -113,8 +113,8 @@ local function getNearestInRange()
 end
 
 -- ============================================================
--- FOLLOW: 4 studs above, no transition, no jump boost
--- Total duration: 1.06 seconds
+-- UPDATED smoothFollow: 4 studs above, NO transition, NO behind offset
+-- Total duration: 1.06 seconds (0.76 + 0.30)
 -- ============================================================
 local function smoothFollow(targetModel)
 	local char = p.Character
@@ -125,7 +125,7 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local totalDuration = 1.06  -- 0.76 + 0.30
+	local totalDuration = 1.06  -- 0.76 + 0.30 seconds
 
 	while running and os.clock() - start < totalDuration do
 		if not myRoot or not myRoot.Parent then return end
@@ -212,18 +212,15 @@ local function onAnimationPlayed(track)
 
 	if id == "rbxassetid://109159204999611" or id == "rbxassetid://1234" then
 
-		-- ============================================================
-		-- UPDATED: Wait 1.0 second before starting the follow
-		-- (Was 0.2, increased by 0.8 seconds)
-		-- ============================================================
-		task.delay(1.0, function()
+		task.delay(0.2, function()
 			local target = getNearestInRange()
 			if target then
 				smoothFollow(target)
 			end
 		end)
 
-		-- Press Q after 0.08 seconds (unchanged)
+		-- (Jump boost l() removed)
+
 		task.delay(0.08, function()
 			if running then
 				comboAction()
