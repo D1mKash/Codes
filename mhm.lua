@@ -10,6 +10,12 @@ local _0x18=false local _0x19=0
 local _0x92=0
 local _0x93=nil
 
+-- mhm
+local _0x99 = false        
+local _0x100 = nil       
+local _0x101 = nil         
+local _0x102 = nil           
+
 local function _0x20(_0x21)
 _0x4:SendKeyEvent(true,_0x21,false,_0x1)
 _0x4:SendKeyEvent(false,_0x21,false,_0x1)
@@ -110,15 +116,12 @@ task.wait(0.1)
 _0x4:SendMouseButtonEvent(0,0,0,false,_0x1,0)
 end
 
--- ============================================================
--- FIX 1: Auto-guard break now checks if YOU are blocking.
--- If you are blocking, it cancels. No more F tap.
--- ============================================================
+-- mhm
 local function _0x34()
 if _0x18 then return end
 _0x18 = true
 
--- Check if WE (the local player) are currently holding block
+-- mhm
 local myModel = _0x17:FindFirstChild(_0x7.Name)
 local amIBlocking = false
 if myModel then
@@ -128,15 +131,13 @@ if myModel then
     end
 end
 
--- If we ARE blocking, DO NOT use the ability. Just reset and exit.
+-- mhm
 if amIBlocking then
     _0x18 = false
     return
 end
 
--- (REMOVED the F tap entirely: no more _0x31(Enum.KeyCode.F,0.05) )
-
--- Execute the guard-break combo
+-- mhm
 _0x20(Enum.KeyCode.LeftShift)
 _0x20(Enum.KeyCode.One)
 _0x20(Enum.KeyCode.LeftShift)
@@ -243,9 +244,7 @@ _0x75.AssemblyAngularVelocity=Vector3.zero
 if _0x73 then _0x90()end
 end
 
--- ============================================================
--- FIX 2: Removed the forced F-tap from Z, X, and C keybinds.
--- ============================================================
+-- mhm
 local function _0x45()
 _0x12=_0x6.InputBegan:Connect(function(_0x46,_0x47)
 if _0x47 then return end
@@ -266,7 +265,7 @@ end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.X then
--- (removed F tap: if _0x49 then _0x20(Enum.KeyCode.F) end)
+-- mhm
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
 _0x94()
 task.delay(1.2,function()
@@ -275,7 +274,7 @@ end)
 end
 
 if _0x46.KeyCode==Enum.KeyCode.C then
--- (removed F tap: if _0x49 then _0x20(Enum.KeyCode.F) end)
+-- mhm
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Two)
 end
 end)
@@ -297,6 +296,54 @@ _0x20(Enum.KeyCode.Three)
 _0x15=true
 task.delay(2,function()_0x15=false end)
 end
+
+-- mhm
+if _0x54=="rbxassetid://1470532199"then
+_0x20(Enum.KeyCode.One)
+-- mhm
+_0x99 = true
+if _0x100 then task.cancel(_0x100) end
+_0x100 = task.delay(3, function()
+_0x99 = false
+_0x100 = nil
+end)
+end
+
+if _0x54=="rbxassetid://110274660049620" and _0x99 then
+-- mhm
+_0x99 = false
+if _0x100 then task.cancel(_0x100) _0x100 = nil end
+
+-- mhm
+local target = _0x63()
+if target then
+_0x102 = target
+-- mhm
+if _0x101 then _0x101:Disconnect() end
+local startTime = os.clock()
+_0x101 = _0x5.Heartbeat:Connect(function()
+if not running and not _0x101 then return end  -- mhm
+if os.clock() - startTime > 1 then
+if _0x101 then _0x101:Disconnect() _0x101 = nil end
+_0x102 = nil
+return
+end
+local char = _0x7.Character
+if not char then return end
+local myRoot = char:FindFirstChild("HumanoidRootPart")
+local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
+if myRoot and targetRoot then
+-- mhm
+local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y, myRoot.Position.Z)
+myRoot.CFrame = CFrame.new(newPos, newPos + Vector3.new(0,0,1)) -- mhm
+-- mhm
+local look = myRoot.CFrame.LookVector
+myRoot.CFrame = CFrame.lookAt(newPos, newPos + look)
+end
+end)
+end
+end
+-- ============================================================
 
 if _0x54=="rbxassetid://1470532199"then _0x20(Enum.KeyCode.One)end
 if _0x54=="rbxassetid://1461157246"then _0x20(Enum.KeyCode.One)end
@@ -325,6 +372,12 @@ if _0x9 then _0x9:Disconnect()_0x9=nil end
 if _0x10 then _0x10:Disconnect()_0x10=nil end
 if _0x11 then _0x11:Disconnect()_0x11=nil end
 if _0x12 then _0x12:Disconnect()_0x12=nil end
+
+-- clean up new connections
+if _0x101 then _0x101:Disconnect() _0x101 = nil end
+if _0x100 then task.cancel(_0x100) _0x100 = nil end
+_0x99 = false
+_0x102 = nil
 
 _0x98()
 
