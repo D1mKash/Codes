@@ -184,7 +184,7 @@ local function ds()
 
 					local delta = dmg.Value - v0
 
-					if delta >= 4 and delta <= 9 and s == "D" then
+					if delta >= 1 and delta <= 5 and s == "D" then
 						s = "A"
 
 						if d then
