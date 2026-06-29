@@ -112,6 +112,9 @@ local function getNearestInRange()
 	end
 end
 
+-- ============================================================
+-- UPDATED smoothFollow WITH SMOOTH TRANSITION
+-- ============================================================
 local function smoothFollow(targetModel)
 	local char = p.Character
 	if not char then return end
@@ -121,16 +124,30 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
+	local transitionDuration = 0.3
+	local totalDuration = 0.76
 
-	while running and os.clock() - start < 0.76 do
-		if not myRoot or not targetRoot then return end
+	while running and os.clock() - start < totalDuration do
+		if not myRoot or not myRoot.Parent then return end
+		if not targetRoot or not targetRoot.Parent then return end
 
-		-- ============================================================
-		-- FIXED: Position is now 2 studs BEHIND the target (relative to their facing direction)
-		-- Original: local pos = targetRoot.Position + Vector3.new(0, 3, 0)
-		-- ============================================================
-		local pos = targetRoot.Position - targetRoot.CFrame.LookVector * 2 + Vector3.new(0, 2.5, 0)
+		local targetPos = targetRoot.Position
+		local lookVec = targetRoot.CFrame.LookVector
 
+		-- Transition progress (0 to 1 over 0.3 seconds)
+		local elapsed = os.clock() - start
+		local alpha = math.min(elapsed / transitionDuration, 1)
+
+		-- Start offset: 4 studs above
+		local offsetStart = Vector3.new(0, 4, 0)
+		-- End offset: 2 studs behind, 2 studs above
+		local offsetEnd = -lookVec * 2 + Vector3.new(0, 2, 0)
+
+		-- Smoothly interpolate between offsets
+		local currentOffset = offsetStart:Lerp(offsetEnd, alpha)
+		local pos = targetPos + currentOffset
+
+		-- Face the enemy horizontally
 		local look = targetRoot.Position - myRoot.Position
 		look = Vector3.new(look.X, 0, look.Z)
 
