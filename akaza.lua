@@ -9,14 +9,14 @@ local p = P.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
 local h
-local c
+local connections = {}  -- store all event connections
 local characterConnection
 
 local running = false
 
--- animation IDs
-local ANIM_WAIT = "rbxassetid://1461136875"
-local ANIM_COMBO = "rbxassetid://109159204999611"
+-- animation IDs (numeric only)
+local ANIM_WAIT = "1461136875"
+local ANIM_COMBO = "109159204999611"
 
 -- waiting state
 local waitingForCombo = false
@@ -36,14 +36,6 @@ end
 
 local function comboAction()
 	pressKey(Enum.KeyCode.Q)
-end
-
-------------------------------------------------
--- STATE CHECKS
-------------------------------------------------
-
-local function isFreefall()
-	return h and h:GetState() == Enum.HumanoidStateType.Freefall
 end
 
 ------------------------------------------------
@@ -115,15 +107,18 @@ end
 
 local function onAnimationPlayed(track)
 	if not running then return end
-	if isFreefall() then return end
-	if not track.Animation then return end
+	if not track or not track.Animation then return end
 
-	local id = track.Animation.AnimationId
-	if not id then return end
+	local animId = track.Animation.AnimationId
+	if not animId then return end
 
-	-- === Wait for the first animation (1461127258) ===
-	if id == ANIM_WAIT then
-		-- If we were already waiting, cancel the old timer
+	-- Extract numeric ID from the string (e.g., "rbxassetid://123456" -> "123456")
+	local numericId = string.match(animId, "(%d+)$")
+	if not numericId then return end
+
+	-- === Wait for the first animation ===
+	if numericId == ANIM_WAIT then
+		-- Cancel any previous timer
 		if waitTimer then
 			task.cancel(waitTimer)
 			waitTimer = nil
@@ -137,24 +132,22 @@ local function onAnimationPlayed(track)
 		end)
 	end
 
-	-- === If we are waiting and the combo animation plays, trigger the follow ===
-	if waitingForCombo and id == ANIM_COMBO then
-		-- Cancel the timer (we got the combo animation)
+	-- === If waiting and combo animation plays, trigger follow ===
+	if waitingForCombo and numericId == ANIM_COMBO then
+		-- Cancel timer
 		if waitTimer then
 			task.cancel(waitTimer)
 			waitTimer = nil
 		end
 		waitingForCombo = false
 
-		-- ============================================================
-		-- REMOVED the 0.2-second delay – follow starts immediately
-		-- ============================================================
+		-- Immediately start follow if enemy within 7 studs
 		local target = getNearestInRange()
 		if target then
 			smoothFollow(target)
 		end
 
-		-- Press Q after 0.08 seconds (unchanged)
+		-- Press Q after 0.08 seconds
 		task.delay(0.08, function()
 			if running then
 				comboAction()
@@ -164,26 +157,47 @@ local function onAnimationPlayed(track)
 end
 
 ------------------------------------------------
+-- CONNECT TO ALL ANIMATION SOURCES
+------------------------------------------------
+
+local function connectToAnimationSources(char)
+	-- Clear previous connections
+	for _, conn in ipairs(connections) do
+		pcall(conn.Disconnect, conn)
+	end
+	connections = {}
+
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	h = hum
+
+	-- 1) Connect to Humanoid.AnimationPlayed
+	local conn1 = hum.AnimationPlayed:Connect(onAnimationPlayed)
+	table.insert(connections, conn1)
+
+	-- 2) Find ALL Animators and AnimationControllers in the character (recursively)
+	local function findAnimators(model)
+		for _, child in ipairs(model:GetDescendants()) do
+			if child:IsA("Animator") or child:IsA("AnimationController") then
+				-- Connect to their AnimationPlayed if it exists
+				if child.AnimationPlayed then
+					local conn = child.AnimationPlayed:Connect(onAnimationPlayed)
+					table.insert(connections, conn)
+				end
+			end
+		end
+	end
+
+	findAnimators(char)
+end
+
+------------------------------------------------
 -- CHARACTER HOOK
 ------------------------------------------------
 
 local function hk(char)
-	if c then
-		c:Disconnect()
-		c = nil
-	end
-
-	h = char:WaitForChild("Humanoid")
-
-	-- Connect to the Animator on the Humanoid (or fallback to Animator inside)
-	local animator = h:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = h:WaitForChild("Animator", 5)
-	end
-
-	if animator then
-		c = animator.AnimationPlayed:Connect(onAnimationPlayed)
-	end
+	if not char then return end
+	connectToAnimationSources(char)
 end
 
 ------------------------------------------------
@@ -204,22 +218,21 @@ end
 function m.Stop()
 	running = false
 
-	if c then
-		c:Disconnect()
-		c = nil
+	for _, conn in ipairs(connections) do
+		pcall(conn.Disconnect, conn)
 	end
+	connections = {}
 
 	if characterConnection then
 		characterConnection:Disconnect()
 		characterConnection = nil
 	end
 
-	-- clean up waiting state
-	waitingForCombo = false
 	if waitTimer then
 		task.cancel(waitTimer)
 		waitTimer = nil
 	end
+	waitingForCombo = false
 
 	h = nil
 end
