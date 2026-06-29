@@ -146,14 +146,15 @@ local function onAnimationPlayed(track)
 		end
 		waitingForCombo = false
 
-		-- Start the follow sequence
-		task.delay(0.2, function()
-			local target = getNearestInRange()
-			if target then
-				smoothFollow(target)
-			end
-		end)
+		-- ============================================================
+		-- REMOVED the 0.2-second delay – follow starts immediately
+		-- ============================================================
+		local target = getNearestInRange()
+		if target then
+			smoothFollow(target)
+		end
 
+		-- Press Q after 0.08 seconds (unchanged)
 		task.delay(0.08, function()
 			if running then
 				comboAction()
