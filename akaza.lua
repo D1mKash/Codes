@@ -2,25 +2,25 @@ local m = {}
 
 local P = game:GetService("Players")
 local R = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local VIM = game:GetService("VirtualInputManager")
 
 local p = P.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
-local STANDS = Workspace:WaitForChild("Stands")
 
 local h
 local c
 local characterConnection
-local standAddedConnection
-local standRemovedConnection
 
-local s = "D"
-local v0 = 0
-local d
 local running = false
-local currentAnimModel
+
+-- animation IDs
+local ANIM_WAIT = "rbxassetid://1461127258"
+local ANIM_COMBO = "rbxassetid://109159204999611"
+
+-- waiting state
+local waitingForCombo = false
+local waitTimer = nil
 
 ------------------------------------------------
 -- INPUT COMBO
@@ -44,37 +44,6 @@ end
 
 local function isFreefall()
 	return h and h:GetState() == Enum.HumanoidStateType.Freefall
-end
-
-------------------------------------------------
--- STAND / ANIMATION SOURCE SYSTEM
-------------------------------------------------
-
-local function getStand(char)
-	if not char then return nil end
-
-	return STANDS:FindFirstChild(char.Name) or STANDS:FindFirstChild(p.Name)
-end
-
-local function getAnimationSource(model)
-	if not model then return nil end
-
-	local hum = model:FindFirstChildOfClass("Humanoid")
-	if hum then
-		return hum
-	end
-
-	local animator = model:FindFirstChildWhichIsA("Animator", true)
-	if animator then
-		return animator
-	end
-
-	local controller = model:FindFirstChildWhichIsA("AnimationController", true)
-	if controller then
-		return controller:FindFirstChildOfClass("Animator") or controller:WaitForChild("Animator", 5)
-	end
-
-	return nil
 end
 
 ------------------------------------------------
@@ -112,10 +81,6 @@ local function getNearestInRange()
 	end
 end
 
--- ============================================================
--- UPDATED smoothFollow: 4 studs above, NO transition, NO behind offset
--- Total duration: 1.06 seconds (0.76 + 0.30)
--- ============================================================
 local function smoothFollow(targetModel)
 	local char = p.Character
 	if not char then return end
@@ -125,16 +90,14 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local totalDuration = 1.06  -- 0.76 + 0.30 seconds
+	local totalDuration = 1.06
 
 	while running and os.clock() - start < totalDuration do
 		if not myRoot or not myRoot.Parent then return end
 		if not targetRoot or not targetRoot.Parent then return end
 
-		-- Stay exactly 4 studs above the target at all times
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
 
-		-- Face the enemy horizontally (ignore Y)
 		local look = targetRoot.Position - myRoot.Position
 		look = Vector3.new(look.X, 0, look.Z)
 
@@ -147,71 +110,43 @@ local function smoothFollow(targetModel)
 end
 
 ------------------------------------------------
--- RESET
-------------------------------------------------
-
-local function reset()
-	s = "D"
-	if d then
-		d:Disconnect()
-		d = nil
-	end
-end
-
-------------------------------------------------
--- DAMAGE DETECTION THREAD
-------------------------------------------------
-
-local function ds()
-	task.spawn(function()
-		while running do
-			task.wait(0.1)
-
-			if s ~= "D" then
-				continue
-			end
-
-			local stats = p:FindFirstChild("Stats")
-			local dmg = stats and stats:FindFirstChild("Damage")
-
-			if dmg then
-				v0 = dmg.Value
-
-				if d then d:Disconnect() end
-
-				d = dmg.Changed:Connect(function()
-					if not running then return end
-
-					local delta = dmg.Value - v0
-
-					if delta >= 1 and delta <= 5 and s == "D" then
-						s = "A"
-
-						if d then
-							d:Disconnect()
-							d = nil
-						end
-					end
-				end)
-			end
-		end
-	end)
-end
-
-------------------------------------------------
 -- ANIMATION HANDLER
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
 	if not running then return end
 	if isFreefall() then return end
-	if s ~= "A" then return end
 	if not track.Animation then return end
 
 	local id = track.Animation.AnimationId
+	if not id then return end
 
-	if id == "rbxassetid://109159204999611" or id == "rbxassetid://1234" then
+	-- === Wait for the first animation (1461127258) ===
+	if id == ANIM_WAIT then
+		-- If we were already waiting, cancel the old timer
+		if waitTimer then
+			task.cancel(waitTimer)
+			waitTimer = nil
+		end
+		waitingForCombo = true
 
+		-- Set a 2-second timeout
+		waitTimer = task.delay(2, function()
+			waitingForCombo = false
+			waitTimer = nil
+		end)
+	end
+
+	-- === If we are waiting and the combo animation plays, trigger the follow ===
+	if waitingForCombo and id == ANIM_COMBO then
+		-- Cancel the timer (we got the combo animation)
+		if waitTimer then
+			task.cancel(waitTimer)
+			waitTimer = nil
+		end
+		waitingForCombo = false
+
+		-- Start the follow sequence
 		task.delay(0.2, function()
 			local target = getNearestInRange()
 			if target then
@@ -219,20 +154,16 @@ local function onAnimationPlayed(track)
 			end
 		end)
 
-		-- (Jump boost l() removed)
-
 		task.delay(0.08, function()
 			if running then
 				comboAction()
 			end
 		end)
-
-		reset()
 	end
 end
 
 ------------------------------------------------
--- CHARACTER / STAND HOOK
+-- CHARACTER HOOK
 ------------------------------------------------
 
 local function hk(char)
@@ -241,55 +172,17 @@ local function hk(char)
 		c = nil
 	end
 
-	if standAddedConnection then
-		standAddedConnection:Disconnect()
-		standAddedConnection = nil
-	end
-
-	if standRemovedConnection then
-		standRemovedConnection:Disconnect()
-		standRemovedConnection = nil
-	end
-
 	h = char:WaitForChild("Humanoid")
 
-	local stand = getStand(char)
-	local animModel = stand or char
-	local animSource = getAnimationSource(animModel)
-
-	-- fallback to character if stand exists but has no animation source
-	if not animSource and animModel ~= char then
-		animModel = char
-		animSource = getAnimationSource(char)
+	-- Connect to the Animator on the Humanoid (or fallback to Animator inside)
+	local animator = h:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = h:WaitForChild("Animator", 5)
 	end
 
-	currentAnimModel = animModel
-
-	if animSource then
-		c = animSource.AnimationPlayed:Connect(onAnimationPlayed)
+	if animator then
+		c = animator.AnimationPlayed:Connect(onAnimationPlayed)
 	end
-
-	-- if your Stand spawns after the script starts, switch to tracking it
-	standAddedConnection = STANDS.ChildAdded:Connect(function(child)
-		if not running then return end
-		if not p.Character or p.Character ~= char then return end
-
-		if child.Name == char.Name or child.Name == p.Name then
-			task.wait(0.1)
-			hk(char)
-		end
-	end)
-
-	-- if your Stand gets removed, fall back to tracking your character
-	standRemovedConnection = STANDS.ChildRemoved:Connect(function(child)
-		if not running then return end
-		if not p.Character or p.Character ~= char then return end
-
-		if child == currentAnimModel then
-			task.wait(0.1)
-			hk(char)
-		end
-	end)
 end
 
 ------------------------------------------------
@@ -305,22 +198,14 @@ function m.Start()
 	end
 
 	characterConnection = p.CharacterAdded:Connect(hk)
-
-	ds()
 end
 
 function m.Stop()
 	running = false
-	s = "D"
 
 	if c then
 		c:Disconnect()
 		c = nil
-	end
-
-	if d then
-		d:Disconnect()
-		d = nil
 	end
 
 	if characterConnection then
@@ -328,18 +213,14 @@ function m.Stop()
 		characterConnection = nil
 	end
 
-	if standAddedConnection then
-		standAddedConnection:Disconnect()
-		standAddedConnection = nil
-	end
-
-	if standRemovedConnection then
-		standRemovedConnection:Disconnect()
-		standRemovedConnection = nil
+	-- clean up waiting state
+	waitingForCombo = false
+	if waitTimer then
+		task.cancel(waitTimer)
+		waitTimer = nil
 	end
 
 	h = nil
-	currentAnimModel = nil
 end
 
 return m
