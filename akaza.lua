@@ -15,7 +15,7 @@ local characterConnection
 local running = false
 
 -- animation IDs
-local ANIM_WAIT = "rbxassetid://1461127258"
+local ANIM_WAIT = "rbxassetid://1461136875"
 local ANIM_COMBO = "rbxassetid://109159204999611"
 
 -- waiting state
