@@ -99,7 +99,7 @@ if _0x29 then _0x29:Disconnect()end
 end
 end)
 
-task.delay(0.1,function()
+task.delay(0.5,function()
 if _0x29 then _0x29:Disconnect()end
 end)
 end
