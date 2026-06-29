@@ -2,6 +2,7 @@ local Module = {}
 
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
@@ -39,31 +40,53 @@ local function press(key)
 end
 
 ------------------------------------------------
--- SCAN
+-- SCAN (with ground distance check)
 ------------------------------------------------
 
 local function scan()
+	local char = player.Character
+	if not char then return end
+
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+
+	local rootPart = char:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return end
+
+	-- ============================================================
+	-- NEW: Measure distance to the ground
+	-- If we're higher than 15 studs, skip activation.
+	-- ============================================================
+	local origin = rootPart.Position
+	local direction = Vector3.new(0, -1, 0)
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterDescendantsInstances = {char}
+	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+	local result = Workspace:Raycast(origin, direction * 30, raycastParams)
+	local groundDistance = result and result.Distance or 30
+
+	-- If the ground is more than 15 studs away, we are too high → skip
+	if groundDistance > 15 then
+		return
+	end
 
 	if not animator then return end
 
 	local current = {}
 
 	for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-
 		if track and track.Animation then
-
 			local id = track.Animation.AnimationId
 			current[id] = true
 
 			for _, animId in ipairs(ANIMATIONS) do
 				if string.find(id, animId) then
-
-					-- only trigger once per play
 					if not active[id] then
 						active[id] = true
 						press(selectedKey)
 					end
-
 					break
 				end
 			end
