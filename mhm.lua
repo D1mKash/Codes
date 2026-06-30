@@ -310,27 +310,30 @@ if target then
 _0x102 = target
 _0x104 = _0x53
 _0x104.Stopped:Connect(function()
-if _0x102 and _0x104 then
-if _0x101 then _0x101:Disconnect() end
-local startTime = os.clock()
-_0x101 = _0x5.Heartbeat:Connect(function()
-if os.clock() - startTime > 0.7 then
-if _0x101 then _0x101:Disconnect() _0x101 = nil end
-_0x102 = nil
-_0x104 = nil
-return
-end
-local char = _0x7.Character
-if not char then return end
-local myRoot = char:FindFirstChild("HumanoidRootPart")
-local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
-if myRoot and targetRoot then
-local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y, myRoot.Position.Z)
-local cf = myRoot.CFrame
-myRoot.CFrame = CFrame.new(newPos) * cf.Rotation
-end
-end)
-end
+    if _0x102 and _0x104 then
+        if _0x101 then _0x101:Disconnect() end
+        local startTime = os.clock()
+        local initialDamage = _0x13   -- store damage at loop start
+        _0x101 = _0x5.Heartbeat:Connect(function()
+            local damageChange = _0x13 - initialDamage
+            -- Stop after 1.2s OR if damage increased by 4 to 5.5
+            if os.clock() - startTime > 1.2 or (damageChange >= 4 and damageChange <= 5.5) then
+                if _0x101 then _0x101:Disconnect() _0x101 = nil end
+                _0x102 = nil
+                _0x104 = nil
+                return
+            end
+            local char = _0x7.Character
+            if not char then return end
+            local myRoot = char:FindFirstChild("HumanoidRootPart")
+            local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
+            if myRoot and targetRoot then
+                local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y, myRoot.Position.Z)
+                local cf = myRoot.CFrame
+                myRoot.CFrame = CFrame.new(newPos) * cf.Rotation
+            end
+        end)
+    end
 end)
 end
 end
