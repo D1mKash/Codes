@@ -314,7 +314,7 @@ if _0x102 and _0x104 then
 if _0x101 then _0x101:Disconnect() end
 local startTime = os.clock()
 _0x101 = _0x5.Heartbeat:Connect(function()
-if os.clock() - startTime > 0.2 then
+if os.clock() - startTime > 0.7 then
 if _0x101 then _0x101:Disconnect() _0x101 = nil end
 _0x102 = nil
 _0x104 = nil
