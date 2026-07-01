@@ -345,7 +345,7 @@ _0x104.Stopped:Connect(function()
                     newY = groundY + 1 -- small offset above floor
                 else
                     -- Otherwise, stay 5 studs above opponent's RootPart
-                    newY = targetRoot.Position.Y - 2
+                    newY = targetRoot.Position.Y + 2
                 end
 
                 local newPos = Vector3.new(myRoot.Position.X, newY, myRoot.Position.Z)
