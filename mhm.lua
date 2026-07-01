@@ -313,10 +313,9 @@ _0x104.Stopped:Connect(function()
     if _0x102 and _0x104 then
         if _0x101 then _0x101:Disconnect() end
         local startTime = os.clock()
-        local initialDamage = _0x13   -- store damage at loop start
+        local initialDamage = _0x13
         _0x101 = _0x5.Heartbeat:Connect(function()
             local damageChange = _0x13 - initialDamage
-            -- Stop after 1.2s OR if damage increased by 4 to 5.5
             if os.clock() - startTime > 1.2 or (damageChange >= 4 and damageChange <= 5.5) then
                 if _0x101 then _0x101:Disconnect() _0x101 = nil end
                 _0x102 = nil
@@ -328,7 +327,8 @@ _0x104.Stopped:Connect(function()
             local myRoot = char:FindFirstChild("HumanoidRootPart")
             local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
             if myRoot and targetRoot then
-                local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y, myRoot.Position.Z)
+                -- Now 5 studs below the opponent's RootPart Y
+                local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y - 5, myRoot.Position.Z)
                 local cf = myRoot.CFrame
                 myRoot.CFrame = CFrame.new(newPos) * cf.Rotation
             end
