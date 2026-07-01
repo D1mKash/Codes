@@ -82,7 +82,7 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local totalDuration = 1.16
+	local totalDuration = 1.3
 
 	while running and os.clock() - start < totalDuration do
 		if not myRoot or not myRoot.Parent then return end
