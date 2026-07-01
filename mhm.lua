@@ -327,8 +327,28 @@ _0x104.Stopped:Connect(function()
             local myRoot = char:FindFirstChild("HumanoidRootPart")
             local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
             if myRoot and targetRoot then
-                -- Now 5 studs below the opponent's RootPart Y
-                local newPos = Vector3.new(myRoot.Position.X, targetRoot.Position.Y - 5, myRoot.Position.Z)
+                -- Determine ground level using raycast downward
+                local groundY = nil
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {char, _0x102} -- ignore self and target
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local rayOrigin = myRoot.Position
+                local rayDirection = Vector3.new(0, -100, 0)
+                local rayResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                if rayResult then
+                    groundY = rayResult.Position.Y
+                end
+
+                local newY
+                if groundY and (myRoot.Position.Y - groundY) < 5 then
+                    -- Less than 5 studs above ground: stop height matching, stay near ground
+                    newY = groundY + 1 -- small offset above floor
+                else
+                    -- Otherwise, stay 5 studs above opponent's RootPart
+                    newY = targetRoot.Position.Y - 4
+                end
+
+                local newPos = Vector3.new(myRoot.Position.X, newY, myRoot.Position.Z)
                 local cf = myRoot.CFrame
                 myRoot.CFrame = CFrame.new(newPos) * cf.Rotation
             end
