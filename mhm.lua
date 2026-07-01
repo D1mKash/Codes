@@ -316,7 +316,7 @@ _0x104.Stopped:Connect(function()
         local initialDamage = _0x13
         _0x101 = _0x5.Heartbeat:Connect(function()
             local damageChange = _0x13 - initialDamage
-            if os.clock() - startTime > 0.6 or (damageChange >= 4 and damageChange <= 5.5) then
+            if os.clock() - startTime > 0.6 or (damageChange >= 6 and damageChange <= 10.5) then
                 if _0x101 then _0x101:Disconnect() _0x101 = nil end
                 _0x102 = nil
                 _0x104 = nil
