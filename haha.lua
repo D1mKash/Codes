@@ -11,12 +11,14 @@ local LIVE = Workspace:WaitForChild("Live")
 
 local running = false
 local inputConnection
+local inputEndConnection
 
 local chrolloBusy = false
 local chrolloToken = 0
 
 -- For BlueBuff hold
 local holdActive = false
+local holdLoop = nil
 local holdHumanoid = nil
 local holdOldJumpPower = 0
 local holdOldUseJumpPower = false
@@ -240,7 +242,7 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF: TELEPORT + HOLD (until you press Space/click)
+-- BLUEBUFF – STICKY HOLD (CANCEL BY PRESSING SPACE/CLICK)
 ------------------------------------------------
 
 local function teleportBehindNearest()
@@ -289,8 +291,8 @@ local function restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 	end)
 end
 
--- Starts holding Space + LMB (single down events, no re-apply)
-local function startHold()
+-- Starts the sticky hold (re-applies down every 0.05s)
+local function startStickyHold()
 	if holdActive then return end
 	holdActive = true
 
@@ -307,14 +309,29 @@ local function startHold()
 
 	disableJumping(humanoid)
 
+	-- Launch loop
+	holdLoop = task.spawn(function()
+		while holdActive do
+			holdKeyDown(Enum.KeyCode.Space)
+			holdMouseDown()
+			task.wait(0.05)
+		end
+	end)
+
+	-- Send initial downs immediately
 	holdKeyDown(Enum.KeyCode.Space)
 	holdMouseDown()
 end
 
--- Releases keys and restores jumping (called when we detect Space/click up)
-local function stopHold()
+-- Stops the sticky hold and releases keys
+local function stopStickyHold()
 	if not holdActive then return end
 	holdActive = false
+
+	if holdLoop then
+		task.cancel(holdLoop)
+		holdLoop = nil
+	end
 
 	holdMouseUp()
 	holdKeyUp(Enum.KeyCode.Space)
@@ -328,12 +345,13 @@ local function stopHold()
 	holdOldUseJumpPower = false
 end
 
--- Main combo: press Z
+-- The combo: called when Z is pressed
 local function doBlueBuffCombo()
-	-- If we are already holding, ignore (or you could restart? But they want to stop with space/click, so we just ignore)
-	if holdActive then return end
+	if holdActive then
+		-- Option: if already holding, do nothing (or you could restart by stopping then starting again, but they didn't want toggle)
+		return
+	end
 
-	-- Ensure BlueBuff is active
 	if not hasInCharacter("BlueBuff") then
 		pressKey(Enum.KeyCode.Three)
 		task.wait(0.1)
@@ -347,9 +365,9 @@ local function doBlueBuffCombo()
 
 	if teleported and targetRoot then
 		turnCameraToTargetDirection(targetRoot)
-		task.wait(0.25)          -- 0.25s delay before pressing Three
+		startStickyHold()
+		task.wait(0.25)
 		pressKey(Enum.KeyCode.Three)
-		startHold()              -- holds Space + LMB until you manually press them
 	end
 end
 
@@ -368,18 +386,11 @@ local function onInputBegan(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.Z then
 		doBlueBuffCombo()
 	end
-end
 
--- We also need to detect when Space or LMB are released (to stop hold)
--- We can use InputEnded for that.
-local function onInputEnded(input, gameProcessed)
-	if not running then return end
-	if gameProcessed then return end
-
-	-- If Space or left mouse button is released while we are holding, stop the hold.
+	-- If the user presses Space or left click while the hold is active, stop the hold.
 	if holdActive then
 		if input.KeyCode == Enum.KeyCode.Space or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			stopHold()
+			stopStickyHold()
 		end
 	end
 end
@@ -393,8 +404,6 @@ function m.Start()
 	running = true
 
 	inputConnection = UserInputService.InputBegan:Connect(onInputBegan)
-	-- Also connect to InputEnded to detect release of Space/LMB
-	UserInputService.InputEnded:Connect(onInputEnded)
 end
 
 function m.Stop()
@@ -403,7 +412,7 @@ function m.Stop()
 	chrolloToken += 1
 
 	if holdActive then
-		stopHold()
+		stopStickyHold()
 	end
 
 	if inputConnection then
