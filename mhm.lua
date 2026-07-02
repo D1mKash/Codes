@@ -309,11 +309,21 @@ local target = _0x63()
 if target then
 _0x102 = target
 _0x104 = _0x53
+-- ============================================================
+-- ⬇️  FIXED BLOCK – dynamic extrapolation for lag compensation  ⬇️
+-- ============================================================
 _0x104.Stopped:Connect(function()
     if _0x102 and _0x104 then
         if _0x101 then _0x101:Disconnect() end
+
+        -- The time to extrapolate the target's vertical movement.
+        -- Value derived from your tests: 0.18s gives -9 studs offset for a fast-falling target,
+        -- while keeping +1 offset for stationary targets.
+        local EXTRAPOLATION_TIME = 0.18
+
         local startTime = os.clock()
         local initialDamage = _0x13
+
         _0x101 = _0x5.Heartbeat:Connect(function()
             local damageChange = _0x13 - initialDamage
             if os.clock() - startTime > 0.1 or (damageChange >= 4 and damageChange <= 6) then
@@ -322,15 +332,25 @@ _0x104.Stopped:Connect(function()
                 _0x104 = nil
                 return
             end
+
             local char = _0x7.Character
             if not char then return end
             local myRoot = char:FindFirstChild("HumanoidRootPart")
             local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
             if myRoot and targetRoot then
-                -- Determine ground level using raycast downward
+                -- Get target's vertical velocity
+                local targetVelocity = targetRoot.AssemblyLinearVelocity
+
+                -- Base offset (+1 aims at the center of the opponent when they are still)
+                local baseOffset = 1
+
+                -- Predict the actual Y position by compensating for network interpolation delay
+                local predictedY = targetRoot.Position.Y + baseOffset + (targetVelocity.Y * EXTRAPOLATION_TIME)
+
+                -- Ground check to avoid falling through the floor
                 local groundY = nil
                 local raycastParams = RaycastParams.new()
-                raycastParams.FilterDescendantsInstances = {char, _0x102} -- ignore self and target
+                raycastParams.FilterDescendantsInstances = {char, _0x102}
                 raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
                 local rayOrigin = myRoot.Position
                 local rayDirection = Vector3.new(0, -100, 0)
@@ -341,10 +361,10 @@ _0x104.Stopped:Connect(function()
 
                 local newY
                 if groundY and (myRoot.Position.Y - groundY) < 5 then
-                    -- Less than 5 studs above ground: stop height matching, stay near ground
-                    newY = groundY + 1 -- small offset above floor
+                    -- Player is near the ground: stay just above it
+                    newY = groundY + 1
                 else
-                    newY = targetRoot.Position.Y + 1
+                    newY = predictedY
                 end
 
                 local newPos = Vector3.new(myRoot.Position.X, newY, myRoot.Position.Z)
@@ -354,6 +374,9 @@ _0x104.Stopped:Connect(function()
         end)
     end
 end)
+-- ============================================================
+-- ⬆️  END OF FIXED BLOCK                                     ⬆️
+-- ============================================================
 end
 end
 
