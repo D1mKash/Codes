@@ -17,6 +17,15 @@ local _0x102=nil
 local _0x103=nil
 local _0x104=nil
 
+-- ============================================================
+--  TUNE THIS VALUE based on your average opponent ping.
+--  Recommended:
+--   0.12  →  best for 30-90ms opponents
+--   0.16  →  good all-rounder (covers both 90ms and 140ms)
+--   0.18  →  best for 140ms+ opponents
+-- ============================================================
+local EXTRAPOLATION_TIME = 0.16
+
 local function _0x20(_0x21)
 _0x4:SendKeyEvent(true,_0x21,false,_0x1)
 _0x4:SendKeyEvent(false,_0x21,false,_0x1)
@@ -309,17 +318,9 @@ local target = _0x63()
 if target then
 _0x102 = target
 _0x104 = _0x53
--- ============================================================
--- ⬇️  FIXED BLOCK – dynamic extrapolation for lag compensation  ⬇️
--- ============================================================
 _0x104.Stopped:Connect(function()
     if _0x102 and _0x104 then
         if _0x101 then _0x101:Disconnect() end
-
-        -- The time to extrapolate the target's vertical movement.
-        -- Value derived from your tests: 0.18s gives -9 studs offset for a fast-falling target,
-        -- while keeping +1 offset for stationary targets.
-        local EXTRAPOLATION_TIME = 0.18
 
         local startTime = os.clock()
         local initialDamage = _0x13
@@ -338,30 +339,23 @@ _0x104.Stopped:Connect(function()
             local myRoot = char:FindFirstChild("HumanoidRootPart")
             local targetRoot = _0x102 and _0x102:FindFirstChild("HumanoidRootPart")
             if myRoot and targetRoot then
-                -- Get target's vertical velocity
                 local targetVelocity = targetRoot.AssemblyLinearVelocity
-
-                -- Base offset (+1 aims at the center of the opponent when they are still)
                 local baseOffset = 1
 
-                -- Predict the actual Y position by compensating for network interpolation delay
+                -- Uses the tunable EXTRAPOLATION_TIME defined at the top
                 local predictedY = targetRoot.Position.Y + baseOffset + (targetVelocity.Y * EXTRAPOLATION_TIME)
 
-                -- Ground check to avoid falling through the floor
                 local groundY = nil
                 local raycastParams = RaycastParams.new()
                 raycastParams.FilterDescendantsInstances = {char, _0x102}
                 raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-                local rayOrigin = myRoot.Position
-                local rayDirection = Vector3.new(0, -100, 0)
-                local rayResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                local rayResult = workspace:Raycast(myRoot.Position, Vector3.new(0, -100, 0), raycastParams)
                 if rayResult then
                     groundY = rayResult.Position.Y
                 end
 
                 local newY
                 if groundY and (myRoot.Position.Y - groundY) < 5 then
-                    -- Player is near the ground: stay just above it
                     newY = groundY + 1
                 else
                     newY = predictedY
@@ -374,9 +368,6 @@ _0x104.Stopped:Connect(function()
         end)
     end
 end)
--- ============================================================
--- ⬆️  END OF FIXED BLOCK                                     ⬆️
--- ============================================================
 end
 end
 
