@@ -33,11 +33,13 @@ local CHROLLO_STOP_AFTER_GONE = 0.4
 local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
--- Animation IDs to detect
+-- Animation IDs to detect (wait for either)
 local ANIMATION_IDS = {
 	"rbxassetid://1461157246",
 	"rbxassetid://1461127258"
 }
+
+local ANIMATION_TIMEOUT = 4  -- seconds
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -325,7 +327,7 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT BEHIND + HOLD UNTIL ANIMATION
+-- BLUEBUFF Q + TELEPORT + FACE + HOLD UNTIL ANIMATION
 ------------------------------------------------
 
 local function teleportBehindNearest()
@@ -341,8 +343,9 @@ local function teleportBehindNearest()
 	local targetRoot = getRoot(target)
 	if not targetRoot then return false end
 
+	-- Teleport behind, facing the target
 	local behind = targetRoot.CFrame * CFrame.new(0, 0, BLUE_BACK_DISTANCE)
-	local goal = CFrame.new(behind.Position, targetRoot.Position)  -- facing target
+	local goal = CFrame.new(behind.Position, targetRoot.Position)  -- face target
 
 	myRoot.CFrame = goal
 	char:PivotTo(goal)
@@ -371,9 +374,9 @@ local function restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 	end)
 end
 
--- Waits for either animation to play; returns true if detected, false if timeout (2 sec)
+-- Wait for either animation to play; returns true if detected, false if timeout
 local function waitForAnimation(humanoid, timeout)
-	timeout = timeout or 2
+	timeout = timeout or 4
 	local detected = false
 	local conn
 
@@ -420,28 +423,28 @@ local function useBlueBuff()
 		local oldJumpPower = humanoid and humanoid.JumpPower or 0
 		local oldUseJumpPower = humanoid and humanoid.UseJumpPower or false
 
-		-- Disable jumping
+		-- 1) Disable jumping
 		if humanoid then
 			disableJumping(humanoid)
 		end
 
-		-- Hold Space and left click
+		-- 2) Hold Space and left click
 		holdKeyDown(Enum.KeyCode.Space)
 		holdMouseDown()
 
-		-- Wait until either animation plays, or timeout (2 seconds)
-		local detected = humanoid and waitForAnimation(humanoid, 2) or false
+		-- 3) Wait for either animation (4‑second timeout)
+		local detected = humanoid and waitForAnimation(humanoid, ANIMATION_TIMEOUT) or false
 
-		-- Release mouse and Space
+		-- 4) Release mouse and Space
 		holdMouseUp()
 		holdKeyUp(Enum.KeyCode.Space)
 
-		-- Restore jumping
+		-- 5) Restore jumping
 		if humanoid then
 			restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 		end
 
-		-- (Optional) extra delay before switching back
+		-- 6) Short wait then press Three to swap back
 		task.wait(0.3)
 		pressKey(Enum.KeyCode.Three)
 	end
