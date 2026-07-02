@@ -325,11 +325,11 @@ _0x104.Stopped:Connect(function()
         -- Determine vertical offset based on ping (tested values)
         local offset
         if ping <= 0.03 then        -- ≤ 30 ms
-            offset = -4
-        elseif ping <= 0.06 then    -- ≤ 60 ms
             offset = -7
+        elseif ping <= 0.06 then    -- ≤ 60 ms
+            offset = -4
         else                        -- > 60 ms (including >120, we cap at -9)
-            offset = -9
+            offset = 2
         end
         -- For pings > 120ms, we keep -9 as a conservative value
 
