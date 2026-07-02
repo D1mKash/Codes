@@ -33,6 +33,12 @@ local CHROLLO_STOP_AFTER_GONE = 0.4
 local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
+-- Animation IDs to detect
+local ANIMATION_IDS = {
+	"rbxassetid://1461157246",
+	"rbxassetid://1461127258"
+}
+
 ------------------------------------------------
 -- BASIC HELPERS
 ------------------------------------------------
@@ -319,7 +325,7 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT BEHIND + CLICK (EDITED)
+-- BLUEBUFF Q + TELEPORT BEHIND + HOLD UNTIL ANIMATION
 ------------------------------------------------
 
 local function teleportBehindNearest()
@@ -336,7 +342,7 @@ local function teleportBehindNearest()
 	if not targetRoot then return false end
 
 	local behind = targetRoot.CFrame * CFrame.new(0, 0, BLUE_BACK_DISTANCE)
-	local goal = CFrame.new(behind.Position, targetRoot.Position)
+	local goal = CFrame.new(behind.Position, targetRoot.Position)  -- facing target
 
 	myRoot.CFrame = goal
 	char:PivotTo(goal)
@@ -365,6 +371,33 @@ local function restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 	end)
 end
 
+-- Waits for either animation to play; returns true if detected, false if timeout (2 sec)
+local function waitForAnimation(humanoid, timeout)
+	timeout = timeout or 2
+	local detected = false
+	local conn
+
+	local startTime = os.clock()
+	conn = humanoid.AnimationPlayed:Connect(function(track)
+		if not track.Animation then return end
+		local animId = track.Animation.AnimationId
+		for _, id in ipairs(ANIMATION_IDS) do
+			if animId == id then
+				detected = true
+				conn:Disconnect()
+				return
+			end
+		end
+	end)
+
+	while not detected and (os.clock() - startTime < timeout) do
+		task.wait(0.05)
+	end
+
+	if conn then conn:Disconnect() end
+	return detected
+end
+
 local function useBlueBuff()
 	if not hasInCharacter("BlueBuff") then
 		pressKey(Enum.KeyCode.Three)
@@ -381,36 +414,34 @@ local function useBlueBuff()
 	local teleported = teleportBehindNearest()
 
 	if teleported then
-		-- Get humanoid to disable jumping
+		-- Get humanoid and store original jump settings
 		local char = getCharacter()
 		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 		local oldJumpPower = humanoid and humanoid.JumpPower or 0
 		local oldUseJumpPower = humanoid and humanoid.UseJumpPower or false
 
-		-- 1) Disable jumping
+		-- Disable jumping
 		if humanoid then
 			disableJumping(humanoid)
 		end
 
-		-- 2) Hold Space key down
+		-- Hold Space and left click
 		holdKeyDown(Enum.KeyCode.Space)
-
-		-- 3) Hold mouse button down (click)
 		holdMouseDown()
 
-		-- 4) Wait while holding (attack duration)
-		task.wait(0.3)
+		-- Wait until either animation plays, or timeout (2 seconds)
+		local detected = humanoid and waitForAnimation(humanoid, 2) or false
 
-		-- 5) Release mouse and space
+		-- Release mouse and Space
 		holdMouseUp()
 		holdKeyUp(Enum.KeyCode.Space)
 
-		-- 6) Restore jumping
+		-- Restore jumping
 		if humanoid then
 			restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 		end
 
-		-- 7) Press Three to swap back (original behaviour)
+		-- (Optional) extra delay before switching back
 		task.wait(0.3)
 		pressKey(Enum.KeyCode.Three)
 	end
