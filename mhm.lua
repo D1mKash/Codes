@@ -262,7 +262,7 @@ end
 if _0x46.KeyCode==Enum.KeyCode.X then
 _0x20(Enum.KeyCode.Two)task.wait(0.02)_0x20(Enum.KeyCode.Three)
 _0x94()
-task.delay(1.2,function()
+task.delay(1.1,function()
 _0x71("KyokaInvis",true,2)
 end)
 end
@@ -344,7 +344,6 @@ _0x104.Stopped:Connect(function()
                     -- Less than 5 studs above ground: stop height matching, stay near ground
                     newY = groundY + 1 -- small offset above floor
                 else
-                    -- Otherwise, stay 5 studs above opponent's RootPart
                     newY = targetRoot.Position.Y - 10
                 end
 
