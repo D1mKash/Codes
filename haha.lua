@@ -33,13 +33,8 @@ local CHROLLO_STOP_AFTER_GONE = 0.4
 local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
--- Animation IDs to detect (wait for either)
-local ANIMATION_IDS = {
-	"rbxassetid://1461157246",
-	"rbxassetid://1461127258"
-}
-
-local ANIMATION_TIMEOUT = 4  -- seconds
+-- How long to hold Space + left click after teleport (seconds)
+local HOLD_DURATION = 1  -- <-- adjust as needed
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -327,21 +322,22 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT + FACE + HOLD UNTIL ANIMATION
+-- BLUEBUFF Q + TELEPORT + FACE + PRESS THREE + HOLD (fixed duration)
 ------------------------------------------------
 
+-- Teleport behind target, face target, and return targetRoot for camera use
 local function teleportBehindNearest()
 	local char = getCharacter()
-	if not char then return false end
+	if not char then return false, nil end
 
 	local myRoot = getRoot(char)
-	if not myRoot then return false end
+	if not myRoot then return false, nil end
 
 	local target = getNearestTarget(BLUE_RANGE)
-	if not target then return false end
+	if not target then return false, nil end
 
 	local targetRoot = getRoot(target)
-	if not targetRoot then return false end
+	if not targetRoot then return false, nil end
 
 	-- Teleport behind, facing the target
 	local behind = targetRoot.CFrame * CFrame.new(0, 0, BLUE_BACK_DISTANCE)
@@ -353,7 +349,20 @@ local function teleportBehindNearest()
 	myRoot.AssemblyLinearVelocity = Vector3.zero
 	myRoot.AssemblyAngularVelocity = Vector3.zero
 
-	return true
+	return true, targetRoot
+end
+
+-- Rotate the camera to look in the same direction as the target's facing
+local function turnCameraToTargetDirection(targetRoot)
+	local cam = workspace.CurrentCamera
+	if not cam then return end
+	local currentPos = cam.CFrame.Position
+	local lookVector = targetRoot.CFrame.LookVector
+	if lookVector.Magnitude < 0.001 then
+		lookVector = Vector3.new(0, 0, -1)  -- fallback
+	end
+	local targetLookAt = currentPos + lookVector.Unit
+	cam.CFrame = CFrame.lookAt(currentPos, targetLookAt)
 end
 
 local function disableJumping(humanoid)
@@ -374,33 +383,6 @@ local function restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 	end)
 end
 
--- Wait for either animation to play; returns true if detected, false if timeout
-local function waitForAnimation(humanoid, timeout)
-	timeout = timeout or 4
-	local detected = false
-	local conn
-
-	local startTime = os.clock()
-	conn = humanoid.AnimationPlayed:Connect(function(track)
-		if not track.Animation then return end
-		local animId = track.Animation.AnimationId
-		for _, id in ipairs(ANIMATION_IDS) do
-			if animId == id then
-				detected = true
-				conn:Disconnect()
-				return
-			end
-		end
-	end)
-
-	while not detected and (os.clock() - startTime < timeout) do
-		task.wait(0.05)
-	end
-
-	if conn then conn:Disconnect() end
-	return detected
-end
-
 local function useBlueBuff()
 	if not hasInCharacter("BlueBuff") then
 		pressKey(Enum.KeyCode.Three)
@@ -414,39 +396,40 @@ local function useBlueBuff()
 	pressKey(Enum.KeyCode.Q)
 	task.wait(0.05)
 
-	local teleported = teleportBehindNearest()
+	local teleported, targetRoot = teleportBehindNearest()
 
-	if teleported then
+	if teleported and targetRoot then
+		-- Turn camera to face target's direction
+		turnCameraToTargetDirection(targetRoot)
+
+		-- Press Three immediately after teleport and facing
+		pressKey(Enum.KeyCode.Three)
+
 		-- Get humanoid and store original jump settings
 		local char = getCharacter()
 		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 		local oldJumpPower = humanoid and humanoid.JumpPower or 0
 		local oldUseJumpPower = humanoid and humanoid.UseJumpPower or false
 
-		-- 1) Disable jumping
+		-- Disable jumping
 		if humanoid then
 			disableJumping(humanoid)
 		end
 
-		-- 2) Hold Space and left click
+		-- Hold Space and left click for HOLD_DURATION seconds
 		holdKeyDown(Enum.KeyCode.Space)
 		holdMouseDown()
 
-		-- 3) Wait for either animation (4‑second timeout)
-		local detected = humanoid and waitForAnimation(humanoid, ANIMATION_TIMEOUT) or false
+		task.wait(HOLD_DURATION)
 
-		-- 4) Release mouse and Space
+		-- Release mouse and Space
 		holdMouseUp()
 		holdKeyUp(Enum.KeyCode.Space)
 
-		-- 5) Restore jumping
+		-- Restore jumping
 		if humanoid then
 			restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
 		end
-
-		-- 6) Short wait then press Three to swap back
-		task.wait(0.3)
-		pressKey(Enum.KeyCode.Three)
 	end
 end
 
