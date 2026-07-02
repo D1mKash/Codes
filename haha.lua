@@ -34,7 +34,7 @@ local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
 -- How long to hold Space + left click after teleport (seconds)
-local HOLD_DURATION = 1  -- <-- adjust as needed
+local HOLD_DURATION = 7  -- <-- adjust as needed
 
 ------------------------------------------------
 -- BASIC HELPERS
@@ -403,6 +403,7 @@ local function useBlueBuff()
 		turnCameraToTargetDirection(targetRoot)
 
 		-- Press Three immediately after teleport and facing
+		task.wait(0.1)
 		pressKey(Enum.KeyCode.Three)
 
 		-- Get humanoid and store original jump settings
