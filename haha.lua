@@ -69,6 +69,34 @@ local function leftClick(duration)
 	end)
 end
 
+-- Hold key down (no release)
+local function holdKeyDown(key)
+	pcall(function()
+		VIM:SendKeyEvent(true, key, false, game)
+	end)
+end
+
+-- Release key
+local function holdKeyUp(key)
+	pcall(function()
+		VIM:SendKeyEvent(false, key, false, game)
+	end)
+end
+
+-- Hold mouse button down
+local function holdMouseDown()
+	pcall(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+	end)
+end
+
+-- Release mouse button
+local function holdMouseUp()
+	pcall(function()
+		VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+	end)
+end
+
 local function horizontalDistance(a, b)
 	local aa = Vector3.new(a.X, 0, a.Z)
 	local bb = Vector3.new(b.X, 0, b.Z)
@@ -291,7 +319,7 @@ local function startChrolloFollow()
 end
 
 ------------------------------------------------
--- BLUEBUFF Q + TELEPORT BEHIND + CLICK
+-- BLUEBUFF Q + TELEPORT BEHIND + CLICK (EDITED)
 ------------------------------------------------
 
 local function teleportBehindNearest()
@@ -319,6 +347,24 @@ local function teleportBehindNearest()
 	return true
 end
 
+local function disableJumping(humanoid)
+	if not humanoid then return end
+	pcall(function()
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+		humanoid.JumpPower = 0
+		humanoid.UseJumpPower = false
+	end)
+end
+
+local function restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
+	if not humanoid then return end
+	pcall(function()
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+		humanoid.JumpPower = oldJumpPower
+		humanoid.UseJumpPower = oldUseJumpPower
+	end)
+end
+
 local function useBlueBuff()
 	if not hasInCharacter("BlueBuff") then
 		pressKey(Enum.KeyCode.Three)
@@ -335,8 +381,36 @@ local function useBlueBuff()
 	local teleported = teleportBehindNearest()
 
 	if teleported then
-		leftClick(0.05)
+		-- Get humanoid to disable jumping
+		local char = getCharacter()
+		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+		local oldJumpPower = humanoid and humanoid.JumpPower or 0
+		local oldUseJumpPower = humanoid and humanoid.UseJumpPower or false
 
+		-- 1) Disable jumping
+		if humanoid then
+			disableJumping(humanoid)
+		end
+
+		-- 2) Hold Space key down
+		holdKeyDown(Enum.KeyCode.Space)
+
+		-- 3) Hold mouse button down (click)
+		holdMouseDown()
+
+		-- 4) Wait while holding (attack duration)
+		task.wait(0.3)
+
+		-- 5) Release mouse and space
+		holdMouseUp()
+		holdKeyUp(Enum.KeyCode.Space)
+
+		-- 6) Restore jumping
+		if humanoid then
+			restoreJumping(humanoid, oldJumpPower, oldUseJumpPower)
+		end
+
+		-- 7) Press Three to swap back (original behaviour)
 		task.wait(0.3)
 		pressKey(Enum.KeyCode.Three)
 	end
