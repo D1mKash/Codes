@@ -36,7 +36,7 @@ local ANIM_CONFIG = {
 		followDuration = 0.9,
 	},
 	["5711400521"] = {
-		delay = 0.8,
+		delay = 0.7,
 		followDuration = 0.6,
 	},
 	-- Add new ones here, e.g.:
