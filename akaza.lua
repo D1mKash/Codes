@@ -17,7 +17,8 @@ local running = false
 -- Trigger animation IDs (numeric only)
 local TRIGGER_ANIMS = {
 	"109159204999611",
-	"89353560922659",      -- newly added
+	"89353560922659",
+	"87557571922650" -- newly added
 	"5711400521",
 }
 
