@@ -10,17 +10,21 @@ local LIVE = Workspace:WaitForChild("Live")
 local h
 local connections = {}
 local characterConnection
-
-local pendingThread = nil   -- track the currently waiting coroutine
+local pendingThread = nil   -- currently waiting coroutine
 local running = false
 
--- All trigger animation IDs (numeric)
-local TRIGGER_ANIMS = {
-	"109159204999611",
-	"89353560922659",
-	"87557571922650",
-	"5711400521",
+------------------------------------------------
+-- CONFIGURATION – adjust delays here
+------------------------------------------------
+-- Map animation ID (string) → delay in seconds
+-- The script will wait this long after the animation starts, then follow.
+local ANIM_CONFIG = {
+	["109159204999611"] = 0.9,   -- example: wait 1.2 seconds
+	["89353560922659"]  = 0.5,
+	["87557571922650"]  = 2.35,
+	["5711400521"]      = 0.8,   -- adjust to your liking
 }
+-- If you add a new ID, just add it here with its desired delay.
 
 ------------------------------------------------
 -- FOLLOW / LOCK SYSTEM
@@ -74,11 +78,10 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local totalDuration = 1.3
+	local totalDuration = 1.3   -- how long to follow
 
 	while running and os.clock() - start < totalDuration do
-		if not myRoot or not myRoot.Parent then return end
-		if not targetRoot or not targetRoot.Parent then return end
+		if not myRoot.Parent or not targetRoot.Parent then return end
 
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
 		local look = targetRoot.Position - myRoot.Position
@@ -91,7 +94,7 @@ local function smoothFollow(targetModel)
 end
 
 ------------------------------------------------
--- ANIMATION HANDLER (wait using track.Length)
+-- ANIMATION HANDLER (uses manual delays)
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
@@ -104,35 +107,25 @@ local function onAnimationPlayed(track)
 	local numericId = string.match(animId, "(%d+)$")
 	if not numericId then return end
 
-	-- Check if it's a trigger
-	local isTrigger = false
-	for _, id in ipairs(TRIGGER_ANIMS) do
-		if numericId == id then
-			isTrigger = true
-			break
-		end
-	end
+	-- Check if this ID is in our config
+	local delay = ANIM_CONFIG[numericId]
+	if not delay then return end   -- not a trigger animation
 
-	if not isTrigger then return end
-
-	-- Cancel any previously waiting thread (so only the latest animation triggers the follow)
+	-- Cancel any pending follow from a previous trigger
 	if pendingThread then
 		task.cancel(pendingThread)
 		pendingThread = nil
 	end
 
-	-- Start a new thread that waits for the animation duration, then follows
+	-- Start a new thread that waits the specified delay, then follows
 	pendingThread = task.spawn(function()
-		-- Wait for the animation to finish (or until interrupted)
-		local duration = track.Length or 1.0  -- fallback to 1 sec if Length is missing
-		task.wait(duration)
+		task.wait(delay)
 
-		-- Only proceed if script is still running and this thread is still the active one
+		-- Only proceed if still running and this thread is still active
 		if not running or pendingThread ~= coroutine.running() then
 			return
 		end
-
-		pendingThread = nil  -- clear the reference
+		pendingThread = nil
 
 		local target = getNearestTarget()
 		if target then
