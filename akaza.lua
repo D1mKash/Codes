@@ -10,21 +10,38 @@ local LIVE = Workspace:WaitForChild("Live")
 local h
 local connections = {}
 local characterConnection
-local pendingThread = nil   -- currently waiting coroutine
+local pendingThread = nil
 local running = false
 
 ------------------------------------------------
--- CONFIGURATION – adjust delays here
+-- CONFIGURATION – adjust delays & follow durations
 ------------------------------------------------
--- Map animation ID (string) → delay in seconds
--- The script will wait this long after the animation starts, then follow.
+-- Global fallback values (used if not specified per animation)
+local DEFAULT_DELAY = 1.0           -- seconds to wait before following
+local DEFAULT_FOLLOW_DURATION = 1.0 -- seconds to keep following
+
+-- Map animation ID → { delay = seconds, followDuration = seconds }
+-- If a field is omitted, the global default is used.
 local ANIM_CONFIG = {
-	["109159204999611"] = 0.9,   -- example: wait 1.2 seconds
-	["89353560922659"]  = 0.5,
-	["87557571922650"]  = 2.35,
-	["5711400521"]      = 0.8,   -- adjust to your liking
+	["109159204999611"] = {
+		delay = 0.4,
+		followDuration = 1.3,
+	},
+	["89353560922659"] = {
+		delay = 0.5,
+		followDuration = 1.3,
+	},
+	["87557571922650"] = {
+		delay = 2.0,
+		followDuration = 1.3,
+	},
+	["5711400521"] = {
+		delay = 0.4,
+		followDuration = 1.3,
+	},
+	-- Add new ones here, e.g.:
+	-- ["123456789"] = { delay = 1.0, followDuration = 2.0 },
 }
--- If you add a new ID, just add it here with its desired delay.
 
 ------------------------------------------------
 -- FOLLOW / LOCK SYSTEM
@@ -69,7 +86,8 @@ local function getNearestTarget()
 	return closest
 end
 
-local function smoothFollow(targetModel)
+-- smoothFollow now accepts a duration parameter
+local function smoothFollow(targetModel, duration)
 	local char = p.Character
 	if not char then return end
 
@@ -78,9 +96,7 @@ local function smoothFollow(targetModel)
 	if not myRoot or not targetRoot then return end
 
 	local start = os.clock()
-	local totalDuration = 1.3   -- how long to follow
-
-	while running and os.clock() - start < totalDuration do
+	while running and os.clock() - start < duration do
 		if not myRoot.Parent or not targetRoot.Parent then return end
 
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
@@ -94,7 +110,7 @@ local function smoothFollow(targetModel)
 end
 
 ------------------------------------------------
--- ANIMATION HANDLER (uses manual delays)
+-- ANIMATION HANDLER (uses manual delays & durations)
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
@@ -107,9 +123,12 @@ local function onAnimationPlayed(track)
 	local numericId = string.match(animId, "(%d+)$")
 	if not numericId then return end
 
-	-- Check if this ID is in our config
-	local delay = ANIM_CONFIG[numericId]
-	if not delay then return end   -- not a trigger animation
+	local config = ANIM_CONFIG[numericId]
+	if not config then return end   -- not a trigger animation
+
+	-- Get delay and follow duration from config, fallback to defaults
+	local delay = config.delay or DEFAULT_DELAY
+	local followDuration = config.followDuration or DEFAULT_FOLLOW_DURATION
 
 	-- Cancel any pending follow from a previous trigger
 	if pendingThread then
@@ -117,11 +136,10 @@ local function onAnimationPlayed(track)
 		pendingThread = nil
 	end
 
-	-- Start a new thread that waits the specified delay, then follows
+	-- Start a new thread that waits the delay, then follows
 	pendingThread = task.spawn(function()
 		task.wait(delay)
 
-		-- Only proceed if still running and this thread is still active
 		if not running or pendingThread ~= coroutine.running() then
 			return
 		end
@@ -129,7 +147,7 @@ local function onAnimationPlayed(track)
 
 		local target = getNearestTarget()
 		if target then
-			smoothFollow(target)
+			smoothFollow(target, followDuration)
 		end
 	end)
 end
