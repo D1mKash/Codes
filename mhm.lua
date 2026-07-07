@@ -327,9 +327,9 @@ _0x104.Stopped:Connect(function()
         if ping <= 0.03 then        -- ≤ 30 ms
             offset = -7
         elseif ping <= 0.06 then    -- ≤ 60 ms
-            offset = -4
+            offset = -6
         else                        -- > 60 ms (including >120, we cap at -9)
-            offset = 2
+            offset = -5
         end
         -- For pings > 120ms, we keep -9 as a conservative value
 
