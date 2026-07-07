@@ -25,19 +25,19 @@ local DEFAULT_FOLLOW_DURATION = 1.0 -- seconds to keep following
 local ANIM_CONFIG = {
 	["109159204999611"] = {
 		delay = 0.4,
-		followDuration = 1.3,
+		followDuration = 1.2,
 	},
 	["89353560922659"] = {
 		delay = 0.5,
 		followDuration = 1.3,
 	},
 	["87557571922650"] = {
-		delay = 2.0,
-		followDuration = 1.3,
+		delay = 2.1,
+		followDuration = 0.9,
 	},
 	["5711400521"] = {
-		delay = 0.4,
-		followDuration = 1.3,
+		delay = 0.8,
+		followDuration = 0.6,
 	},
 	-- Add new ones here, e.g.:
 	-- ["123456789"] = { delay = 1.0, followDuration = 2.0 },
