@@ -3,40 +3,24 @@ local m = {}
 local P = game:GetService("Players")
 local R = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local VIM = game:GetService("VirtualInputManager")
 
 local p = P.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
 local h
-local connections = {}  -- store all event connections
+local connections = {}         -- event connections for animation sources
 local characterConnection
+local pendingEndConn = nil     -- connection for the current animation's Ended event
 
 local running = false
 
--- Trigger animation IDs (numeric only)
+-- All trigger animation IDs (numeric)
 local TRIGGER_ANIMS = {
 	"109159204999611",
 	"89353560922659",
-	"87557571922650", -- newly added
+	"87557571922650",
 	"5711400521",
 }
-
-------------------------------------------------
--- INPUT COMBO
-------------------------------------------------
-
-local function pressKey(key)
-	pcall(function()
-		VIM:SendKeyEvent(true, key, false, game)
-		task.wait(0.01)
-		VIM:SendKeyEvent(false, key, false, game)
-	end)
-end
-
-local function comboAction()
-	pressKey(Enum.KeyCode.Q)
-end
 
 ------------------------------------------------
 -- FOLLOW / LOCK SYSTEM
@@ -54,34 +38,24 @@ local function getNearestTarget()
 	local myRoot = getRoot(char)
 	if not myRoot then return end
 
-	local localTeam = p.Team  -- may be nil if not on a team
-
+	local localTeam = p.Team
 	local closest, dist = nil, math.huge
 	local maxDist = 6
 
 	for _, model in pairs(LIVE:GetChildren()) do
-		if model == char then continue end  -- skip self
+		if model == char then continue end
 
-		-- Must have a Humanoid and a HumanoidRootPart
 		local hum = model:FindFirstChildOfClass("Humanoid")
 		if not hum then continue end
 		local root = getRoot(model)
 		if not root then continue end
 
-		-- Check if it's a player character
 		local player = P:GetPlayerFromCharacter(model)
 		if player then
-			-- If we are on a team, skip allies
-			if localTeam and player.Team == localTeam then
-				continue
-			end
-			-- Also skip if it's the local player (redundant but safe)
-			if player == p then
-				continue
-			end
+			if localTeam and player.Team == localTeam then continue end
+			if player == p then continue end
 		end
 
-		-- Distance check
 		local d = (root.Position - myRoot.Position).Magnitude
 		if d < maxDist and d < dist then
 			dist = d
@@ -108,20 +82,17 @@ local function smoothFollow(targetModel)
 		if not targetRoot or not targetRoot.Parent then return end
 
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
-
 		local look = targetRoot.Position - myRoot.Position
 		look = Vector3.new(look.X, 0, look.Z)
-
 		local goal = CFrame.new(pos, pos + look)
 
 		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.175)
-
 		R.Heartbeat:Wait()
 	end
 end
 
 ------------------------------------------------
--- ANIMATION HANDLER
+-- ANIMATION HANDLER (triggers after animation ends)
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
@@ -134,7 +105,7 @@ local function onAnimationPlayed(track)
 	local numericId = string.match(animId, "(%d+)$")
 	if not numericId then return end
 
-	-- Check if this animation ID is in our trigger list
+	-- Check if it's a trigger
 	local isTrigger = false
 	for _, id in ipairs(TRIGGER_ANIMS) do
 		if numericId == id then
@@ -143,19 +114,24 @@ local function onAnimationPlayed(track)
 		end
 	end
 
-	if isTrigger then
+	if not isTrigger then return end
+
+	-- Cancel any pending animation‑end listener
+	if pendingEndConn then
+		pendingEndConn:Disconnect()
+		pendingEndConn = nil
+	end
+
+	-- Wait until this animation finishes, then run the follow
+	pendingEndConn = track.Ended:Connect(function()
+		pendingEndConn = nil
+		if not running then return end
+
 		local target = getNearestTarget()
 		if target then
 			smoothFollow(target)
 		end
-
-		-- Press Q after 0.08 seconds
-		task.delay(0.08, function()
-			if running then
-				comboAction()
-			end
-		end)
-	end
+	end)
 end
 
 ------------------------------------------------
@@ -173,11 +149,9 @@ local function connectToAnimationSources(char)
 	if not hum then return end
 	h = hum
 
-	-- 1) Connect to Humanoid.AnimationPlayed
 	local conn1 = hum.AnimationPlayed:Connect(onAnimationPlayed)
 	table.insert(connections, conn1)
 
-	-- 2) Find ALL Animators and AnimationControllers in the character (recursively)
 	local function findAnimators(model)
 		for _, child in ipairs(model:GetDescendants()) do
 			if child:IsA("Animator") or child:IsA("AnimationController") then
@@ -227,6 +201,11 @@ function m.Stop()
 	if characterConnection then
 		characterConnection:Disconnect()
 		characterConnection = nil
+	end
+
+	if pendingEndConn then
+		pendingEndConn:Disconnect()
+		pendingEndConn = nil
 	end
 
 	h = nil
