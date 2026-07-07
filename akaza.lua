@@ -14,13 +14,12 @@ local characterConnection
 
 local running = false
 
--- animation IDs (numeric only)
-local ANIM_WAIT = "1461136875"
-local ANIM_COMBO = "109159204999611"
-
--- waiting state
-local waitingForCombo = false
-local waitTimer = nil
+-- Trigger animation IDs (numeric only)
+local TRIGGER_ANIMS = {
+	"109159204999611",
+	"89353560922659",      -- newly added
+	"5711400521",
+}
 
 ------------------------------------------------
 -- INPUT COMBO
@@ -46,31 +45,50 @@ local function getRoot(model)
 	return model and model:FindFirstChild("HumanoidRootPart")
 end
 
-local function getNearestInRange()
+-- Returns the nearest valid target within 6 studs, respecting team rules
+local function getNearestTarget()
 	local char = p.Character
 	if not char then return end
 
 	local myRoot = getRoot(char)
 	if not myRoot then return end
 
+	local localTeam = p.Team  -- may be nil if not on a team
+
 	local closest, dist = nil, math.huge
+	local maxDist = 6
 
 	for _, model in pairs(LIVE:GetChildren()) do
-		if model ~= char then
-			local root = getRoot(model)
-			if root then
-				local d = (root.Position - myRoot.Position).Magnitude
-				if d < dist then
-					dist = d
-					closest = model
-				end
+		if model == char then continue end  -- skip self
+
+		-- Must have a Humanoid and a HumanoidRootPart
+		local hum = model:FindFirstChildOfClass("Humanoid")
+		if not hum then continue end
+		local root = getRoot(model)
+		if not root then continue end
+
+		-- Check if it's a player character
+		local player = P:GetPlayerFromCharacter(model)
+		if player then
+			-- If we are on a team, skip allies
+			if localTeam and player.Team == localTeam then
+				continue
 			end
+			-- Also skip if it's the local player (redundant but safe)
+			if player == p then
+				continue
+			end
+		end
+
+		-- Distance check
+		local d = (root.Position - myRoot.Position).Magnitude
+		if d < maxDist and d < dist then
+			dist = d
+			closest = model
 		end
 	end
 
-	if closest and dist <= 7 then
-		return closest
-	end
+	return closest
 end
 
 local function smoothFollow(targetModel)
@@ -112,37 +130,20 @@ local function onAnimationPlayed(track)
 	local animId = track.Animation.AnimationId
 	if not animId then return end
 
-	-- Extract numeric ID from the string (e.g., "rbxassetid://123456" -> "123456")
 	local numericId = string.match(animId, "(%d+)$")
 	if not numericId then return end
 
-	-- === Wait for the first animation ===
-	if numericId == ANIM_WAIT then
-		-- Cancel any previous timer
-		if waitTimer then
-			task.cancel(waitTimer)
-			waitTimer = nil
+	-- Check if this animation ID is in our trigger list
+	local isTrigger = false
+	for _, id in ipairs(TRIGGER_ANIMS) do
+		if numericId == id then
+			isTrigger = true
+			break
 		end
-		waitingForCombo = true
-
-		-- Set a 2-second timeout
-		waitTimer = task.delay(2, function()
-			waitingForCombo = false
-			waitTimer = nil
-		end)
 	end
 
-	-- === If waiting and combo animation plays, trigger follow ===
-	if waitingForCombo and numericId == ANIM_COMBO then
-		-- Cancel timer
-		if waitTimer then
-			task.cancel(waitTimer)
-			waitTimer = nil
-		end
-		waitingForCombo = false
-
-		-- Immediately start follow if enemy within 7 studs
-		local target = getNearestInRange()
+	if isTrigger then
+		local target = getNearestTarget()
 		if target then
 			smoothFollow(target)
 		end
@@ -179,7 +180,6 @@ local function connectToAnimationSources(char)
 	local function findAnimators(model)
 		for _, child in ipairs(model:GetDescendants()) do
 			if child:IsA("Animator") or child:IsA("AnimationController") then
-				-- Connect to their AnimationPlayed if it exists
 				if child.AnimationPlayed then
 					local conn = child.AnimationPlayed:Connect(onAnimationPlayed)
 					table.insert(connections, conn)
@@ -227,12 +227,6 @@ function m.Stop()
 		characterConnection:Disconnect()
 		characterConnection = nil
 	end
-
-	if waitTimer then
-		task.cancel(waitTimer)
-		waitTimer = nil
-	end
-	waitingForCombo = false
 
 	h = nil
 end
