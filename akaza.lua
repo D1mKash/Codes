@@ -18,7 +18,7 @@ local running = false
 local TRIGGER_ANIMS = {
 	"109159204999611",
 	"89353560922659",
-	"87557571922650" -- newly added
+	"87557571922650", -- newly added
 	"5711400521",
 }
 
