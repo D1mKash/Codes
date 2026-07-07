@@ -8,10 +8,10 @@ local p = P.LocalPlayer
 local LIVE = Workspace:WaitForChild("Live")
 
 local h
-local connections = {}         -- event connections for animation sources
+local connections = {}
 local characterConnection
-local pendingEndConn = nil     -- connection for the current animation's Ended event
 
+local pendingThread = nil   -- track the currently waiting coroutine
 local running = false
 
 -- All trigger animation IDs (numeric)
@@ -30,7 +30,6 @@ local function getRoot(model)
 	return model and model:FindFirstChild("HumanoidRootPart")
 end
 
--- Returns the nearest valid target within 6 studs, respecting team rules
 local function getNearestTarget()
 	local char = p.Character
 	if not char then return end
@@ -92,7 +91,7 @@ local function smoothFollow(targetModel)
 end
 
 ------------------------------------------------
--- ANIMATION HANDLER (triggers after animation ends)
+-- ANIMATION HANDLER (wait using track.Length)
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
@@ -116,16 +115,24 @@ local function onAnimationPlayed(track)
 
 	if not isTrigger then return end
 
-	-- Cancel any pending animation‑end listener
-	if pendingEndConn then
-		pendingEndConn:Disconnect()
-		pendingEndConn = nil
+	-- Cancel any previously waiting thread (so only the latest animation triggers the follow)
+	if pendingThread then
+		task.cancel(pendingThread)
+		pendingThread = nil
 	end
 
-	-- Wait until this animation finishes, then run the follow
-	pendingEndConn = track.Ended:Connect(function()
-		pendingEndConn = nil
-		if not running then return end
+	-- Start a new thread that waits for the animation duration, then follows
+	pendingThread = task.spawn(function()
+		-- Wait for the animation to finish (or until interrupted)
+		local duration = track.Length or 1.0  -- fallback to 1 sec if Length is missing
+		task.wait(duration)
+
+		-- Only proceed if script is still running and this thread is still the active one
+		if not running or pendingThread ~= coroutine.running() then
+			return
+		end
+
+		pendingThread = nil  -- clear the reference
 
 		local target = getNearestTarget()
 		if target then
@@ -139,7 +146,6 @@ end
 ------------------------------------------------
 
 local function connectToAnimationSources(char)
-	-- Clear previous connections
 	for _, conn in ipairs(connections) do
 		pcall(conn.Disconnect, conn)
 	end
@@ -203,9 +209,9 @@ function m.Stop()
 		characterConnection = nil
 	end
 
-	if pendingEndConn then
-		pendingEndConn:Disconnect()
-		pendingEndConn = nil
+	if pendingThread then
+		task.cancel(pendingThread)
+		pendingThread = nil
 	end
 
 	h = nil
