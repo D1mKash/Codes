@@ -68,7 +68,7 @@ local function scan()
 	local groundDistance = result and result.Distance or 30
 
 	-- If the ground is more than 15 studs away, we are too high → skip
-	if groundDistance > 15 then
+	if groundDistance > 10 then
 		return
 	end
 
