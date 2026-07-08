@@ -16,12 +16,9 @@ local running = false
 ------------------------------------------------
 -- CONFIGURATION – adjust delays & follow durations
 ------------------------------------------------
--- Global fallback values (used if not specified per animation)
-local DEFAULT_DELAY = 1.0           -- seconds to wait before following
-local DEFAULT_FOLLOW_DURATION = 1.0 -- seconds to keep following
+local DEFAULT_DELAY = 1.0
+local DEFAULT_FOLLOW_DURATION = 1.0
 
--- Map animation ID → { delay = seconds, followDuration = seconds }
--- If a field is omitted, the global default is used.
 local ANIM_CONFIG = {
 	["109159204999611"] = {
 		delay = 0.4,
@@ -39,8 +36,6 @@ local ANIM_CONFIG = {
 		delay = 0.7,
 		followDuration = 0.6,
 	},
-	-- Add new ones here, e.g.:
-	-- ["123456789"] = { delay = 1.0, followDuration = 2.0 },
 }
 
 ------------------------------------------------
@@ -67,6 +62,8 @@ local function getNearestTarget()
 
 		local hum = model:FindFirstChildOfClass("Humanoid")
 		if not hum then continue end
+		if hum.Health <= 0 then continue end   -- skip dead targets
+
 		local root = getRoot(model)
 		if not root then continue end
 
@@ -86,7 +83,6 @@ local function getNearestTarget()
 	return closest
 end
 
--- smoothFollow now accepts a duration parameter
 local function smoothFollow(targetModel, duration)
 	local char = p.Character
 	if not char then return end
@@ -95,9 +91,16 @@ local function smoothFollow(targetModel, duration)
 	local targetRoot = getRoot(targetModel)
 	if not myRoot or not targetRoot then return end
 
+	local targetHumanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if not targetHumanoid then return end
+
 	local start = os.clock()
 	while running and os.clock() - start < duration do
+		-- Stop if character or target is gone
 		if not myRoot.Parent or not targetRoot.Parent then return end
+		-- Stop if target is dead
+		if targetHumanoid.Health <= 0 then return end
+		if not targetHumanoid.Parent then return end   -- humanoid removed
 
 		local pos = targetRoot.Position + Vector3.new(0, 4, 0)
 		local look = targetRoot.Position - myRoot.Position
@@ -110,7 +113,7 @@ local function smoothFollow(targetModel, duration)
 end
 
 ------------------------------------------------
--- ANIMATION HANDLER (uses manual delays & durations)
+-- ANIMATION HANDLER
 ------------------------------------------------
 
 local function onAnimationPlayed(track)
@@ -124,19 +127,16 @@ local function onAnimationPlayed(track)
 	if not numericId then return end
 
 	local config = ANIM_CONFIG[numericId]
-	if not config then return end   -- not a trigger animation
+	if not config then return end
 
-	-- Get delay and follow duration from config, fallback to defaults
 	local delay = config.delay or DEFAULT_DELAY
 	local followDuration = config.followDuration or DEFAULT_FOLLOW_DURATION
 
-	-- Cancel any pending follow from a previous trigger
 	if pendingThread then
 		task.cancel(pendingThread)
 		pendingThread = nil
 	end
 
-	-- Start a new thread that waits the delay, then follows
 	pendingThread = task.spawn(function()
 		task.wait(delay)
 
