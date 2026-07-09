@@ -20,19 +20,19 @@ local DEFAULT_DELAY = 1.0
 local DEFAULT_FOLLOW_DURATION = 1.0
 
 local ANIM_CONFIG = {
-	["109159204999611"] = {
+	["109159204999611"] = { -- Akaza
 		delay = 0.4,
 		followDuration = 1.2,
 	},
-	["89353560922659"] = {
+	["89353560922659"] = { -- Yuta
 		delay = 0.5,
 		followDuration = 1.3,
 	},
-	["87557571922650"] = {
+	["87557571922650"] = { -- Mahito
 		delay = 2.0,
 		followDuration = 0.9,
 	},
-	["5711400521"] = {
+	["5711400521"] = { -- Afro Samurai
 		delay = 0.7,
 		followDuration = 0.6,
 	},
