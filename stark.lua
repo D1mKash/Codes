@@ -27,6 +27,7 @@ local matchStartTime = 0
 -- Damage combo
 local waitingForDamage = false
 local listeningForCombo = false
+local comboTimeoutTimer = nil
 local damageTimer = nil
 
 -- Connections
@@ -52,6 +53,16 @@ local function pressKey(key)
         task.wait(0.01)
         VIM:SendKeyEvent(false, key, false, game)
     end)
+end
+
+local function getNumericId(animId)
+    if not animId then return nil end
+    -- Try to extract the last number (common format)
+    local num = string.match(animId, "(%d+)$")
+    if num then return num end
+    -- Fallback: find any number
+    num = string.match(animId, "%d+")
+    return num
 end
 
 -- ==================== HEIGHT MATCH ====================
@@ -110,7 +121,6 @@ local function startMatch()
         local currentRoot = currentChar:FindFirstChild("HumanoidRootPart")
         if not currentRoot then stopMatch(); return end
 
-        -- Ground check
         local hum = currentChar:FindFirstChildOfClass("Humanoid")
         if hum and hum.FloorMaterial ~= Enum.Material.Air then
             stopMatch()
@@ -213,7 +223,20 @@ local function onDamageChanged()
         if inc > 3 and inc < 5 then
             waitingForDamage = false
             if damageTimer then task.cancel(damageTimer); damageTimer = nil end
-            listeningForCombo = true
+
+            -- Small delay to allow immediate animations to be caught
+            task.spawn(function()
+                task.wait(0.05)
+                if running then
+                    listeningForCombo = true
+                    if comboTimeoutTimer then task.cancel(comboTimeoutTimer) end
+                    comboTimeoutTimer = task.spawn(function()
+                        task.wait(1.5)   -- auto‑clear if no combo animation
+                        listeningForCombo = false
+                        comboTimeoutTimer = nil
+                    end)
+                end
+            end)
         end
     end
 end
@@ -238,20 +261,25 @@ local function onAnimationPlayed(track)
     if not track or not track.Animation then return end
     local animId = track.Animation.AnimationId
     if not animId then return end
-    local numericId = string.match(animId, "(%d+)$")
+
+    local numericId = getNumericId(animId)
     if not numericId then return end
 
+    -- Trigger for damage window
     if numericId == "1470447472" then
         startDamageWait()
     end
 
+    -- Combo actions
     if listeningForCombo then
         if numericId == "1461157246" then
             listeningForCombo = false
+            if comboTimeoutTimer then task.cancel(comboTimeoutTimer); comboTimeoutTimer = nil end
             if damageTimer then task.cancel(damageTimer); damageTimer = nil end
             pressKey(Enum.KeyCode.One)
         elseif numericId == "1470532199" then
             listeningForCombo = false
+            if comboTimeoutTimer then task.cancel(comboTimeoutTimer); comboTimeoutTimer = nil end
             if damageTimer then task.cancel(damageTimer); damageTimer = nil end
             pressKey(Enum.KeyCode.Three)
             task.wait(0.1)
@@ -261,6 +289,7 @@ local function onAnimationPlayed(track)
     end
 end
 
+-- ==================== SETUP FUNCTIONS ====================
 local function setupPermanentListener(char)
     for _, c in ipairs(permanentConnections) do
         pcall(c.Disconnect, c)
@@ -320,6 +349,7 @@ local function onCharacterAdded(char)
     waitingForDamage = false
     listeningForCombo = false
     if damageTimer then task.cancel(damageTimer); damageTimer = nil end
+    if comboTimeoutTimer then task.cancel(comboTimeoutTimer); comboTimeoutTimer = nil end
     if active then stopMatch() end
     cleanupActionMonitor(char)
 end
@@ -334,6 +364,7 @@ local function onCharacterRemoving(char)
     waitingForDamage = false
     listeningForCombo = false
     if damageTimer then task.cancel(damageTimer); damageTimer = nil end
+    if comboTimeoutTimer then task.cancel(comboTimeoutTimer); comboTimeoutTimer = nil end
     if damageConnection then
         damageConnection:Disconnect()
         damageConnection = nil
@@ -345,11 +376,9 @@ function m.Start()
     if running then return end
     running = true
 
-    -- Hook character events
     characterAddedConn = player.CharacterAdded:Connect(onCharacterAdded)
     characterRemovingConn = player.CharacterRemoving:Connect(onCharacterRemoving)
 
-    -- Also watch Live folder for character (safety)
     liveChildAddedConn = LIVE.ChildAdded:Connect(function(child)
         if child:IsA("Model") and child.Name == player.Name then
             local current = player.Character
@@ -362,7 +391,6 @@ function m.Start()
         end
     end)
 
-    -- Initial character if exists
     local char = player.Character
     if char then
         onCharacterAdded(char)
@@ -373,7 +401,6 @@ function m.Stop()
     if not running then return end
     running = false
 
-    -- Clean up all connections
     if characterAddedConn then
         characterAddedConn:Disconnect()
         characterAddedConn = nil
@@ -387,16 +414,13 @@ function m.Stop()
         liveChildAddedConn = nil
     end
 
-    -- Stop height match
     stopMatch()
 
-    -- Clean up permanent animation connections
     for _, c in ipairs(permanentConnections) do
         pcall(c.Disconnect, c)
     end
     permanentConnections = {}
 
-    -- Clean up damage watcher
     if damageConnection then
         damageConnection:Disconnect()
         damageConnection = nil
@@ -404,16 +428,15 @@ function m.Stop()
     damageValue = nil
     lastDamage = 0
 
-    -- Clean up action monitors
     local char = getCharacter()
     if char then
         cleanupActionMonitor(char)
     end
 
-    -- Reset states
     waitingForDamage = false
     listeningForCombo = false
     if damageTimer then task.cancel(damageTimer); damageTimer = nil end
+    if comboTimeoutTimer then task.cancel(comboTimeoutTimer); comboTimeoutTimer = nil end
     active = false
     if offTimer then task.cancel(offTimer); offTimer = nil end
     if heartbeat then heartbeat:Disconnect(); heartbeat = nil end
