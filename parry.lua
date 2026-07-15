@@ -8,7 +8,7 @@ local module = {}
 -- ===== CONFIGURATION =====
 local MAX_DISTANCE = 10
 local BLOCK_KEY = Enum.KeyCode.F
-local BLOCK_HOLD_DURATION = 0.2    -- hold F for 0.2 seconds after block starts
+local BLOCK_HOLD_DURATION = 0.4    -- hold F for 0.4 seconds after block starts
 local SCAN_INTERVAL = 0.05
 local DEBUG = true
 
