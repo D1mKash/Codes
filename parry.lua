@@ -1,11 +1,4 @@
---[[
-    Auto Parry Module (Grouped, Fast Scan)
-    - Scans enemies every 0.05 seconds (fast enough for all animations).
-    - M1 animations → block immediately (hold F for 0.3s, reset on new attacks).
-    - M2 animations → block after a 0.3s delay (only if the M2 is still playing).
-    - Early release on perfect block animations (local player).
-    - DEBUG = true shows "ATTACKING" labels above enemies.
-]]
+--[[V2]]
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -13,12 +6,13 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local module = {}
 
 -- ===== CONFIGURATION =====
-local MAX_DISTANCE = 20
+local MAX_DISTANCE = 10
 local BLOCK_KEY = Enum.KeyCode.F
-local BLOCK_DURATION = 0.3          -- hold F for 0.3 seconds
-local M2_DELAY = 0.3                -- delay before blocking on M2
-local SCAN_INTERVAL = 0.05          -- scan every 50ms
-local DEBUG = true                  -- show debug labels
+local BLOCK_HOLD_DURATION = 0.2    -- hold F for 0.2 seconds after block starts
+local M1_DELAY = 0.1               -- delay before blocking on M1
+local M2_DELAY = 0.3               -- delay before blocking on M2
+local SCAN_INTERVAL = 0.05
+local DEBUG = true
 
 -- ===== ANIMATION LISTS =====
 
@@ -64,7 +58,7 @@ local M2_LIST = {
     "92851992709496",
     -- HakariOther
     "101619248052969",
-    -- Karate (fixed full ID)
+    -- Karate
     "120393553812903",
     -- Kure
     "102407060635393",
@@ -100,9 +94,11 @@ local perfectLookup = buildLookup(PERFECT_BLOCK_LIST)
 -- ===== INTERNAL STATE =====
 local running = false
 local isBlocking = false
-local blockStartTime = 0          -- when block was started (for duration)
-local m2StartTime = 0             -- when M2 was first detected (for delay)
-local m2Active = false            -- true if any enemy is playing M2
+local blockStartTime = 0          -- when block was actually started
+local m1StartTime = 0             -- when M1 was first detected
+local m2StartTime = 0             -- when M2 was first detected
+local m1Active = false            -- true if any M1 is currently playing
+local m2Active = false            -- true if any M2 is currently playing
 local debugLabels = {}
 
 -- ===== KEY SIMULATION =====
@@ -155,9 +151,9 @@ local function scan()
     local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
     if not root then return end
 
-    local shouldBlockM1 = false     -- true if any M1 is detected
-    local m2Detected = false        -- true if any M2 is detected
-    local attackingEnemies = {}     -- for debug labels
+    local m1Detected = false
+    local m2Detected = false
+    local attackingEnemies = {}
 
     -- 1. Check all enemies
     for _, player in ipairs(Players:GetPlayers()) do
@@ -178,7 +174,7 @@ local function scan()
                                         local animId = anim.AnimationId:match("%d+")
                                         if animId then
                                             if m1Lookup[animId] then
-                                                shouldBlockM1 = true
+                                                m1Detected = true
                                                 attackingEnemies[enemy] = true
                                                 addLabel(enemy)
                                             elseif m2Lookup[animId] then
@@ -186,8 +182,7 @@ local function scan()
                                                 attackingEnemies[enemy] = true
                                                 addLabel(enemy)
                                             end
-                                            -- if we already found M1, we can break early
-                                            if shouldBlockM1 then break end
+                                            -- early break if both found? not needed
                                         end
                                     end
                                 end
@@ -197,7 +192,6 @@ local function scan()
                 end
             end
         end
-        if shouldBlockM1 then break end
     end
 
     -- Remove labels for enemies not attacking
@@ -207,8 +201,30 @@ local function scan()
         end
     end
 
-    -- Update m2Active based on detection
-    m2Active = m2Detected
+    -- Update active flags and timers
+    local currentTime = tick()
+
+    -- M1 handling
+    if m1Detected then
+        if m1StartTime == 0 then
+            m1StartTime = currentTime
+        end
+        m1Active = true
+    else
+        m1Active = false
+        m1StartTime = 0
+    end
+
+    -- M2 handling
+    if m2Detected then
+        if m2StartTime == 0 then
+            m2StartTime = currentTime
+        end
+        m2Active = true
+    else
+        m2Active = false
+        m2StartTime = 0
+    end
 
     -- 2. Check local player for perfect block (early release)
     local earlyUnblock = false
@@ -231,47 +247,32 @@ local function scan()
         end
     end
 
-    -- 3. Block logic
-    local currentTime = tick()
-
-    -- Handle M1 (immediate block)
-    if shouldBlockM1 then
-        -- Reset M2 delay timer
-        m2StartTime = 0
-        -- Reset block timer (renew duration)
-        blockStartTime = currentTime
-        if not isBlocking then
-            setBlock(true)
-        end
-    else
-        -- No M1 detected, check M2
-        if m2Active then
-            -- M2 is playing, start delay if not already started
-            if m2StartTime == 0 then
-                m2StartTime = currentTime
-            end
-            -- If delay has passed and we are not blocking, block now
-            if (currentTime - m2StartTime) >= M2_DELAY then
-                if not isBlocking then
-                    setBlock(true)
-                    blockStartTime = currentTime   -- start the block duration timer
-                end
-            end
-        else
-            -- No M2, reset delay timer
-            m2StartTime = 0
-        end
+    -- 3. Decide whether to start blocking
+    local shouldBlockNow = false
+    if m1Active and (currentTime - m1StartTime) >= M1_DELAY then
+        shouldBlockNow = true
+    end
+    if m2Active and (currentTime - m2StartTime) >= M2_DELAY then
+        shouldBlockNow = true
     end
 
-    -- Handle block duration and perfect block early release
+    -- If we should block and we aren't already, start blocking
+    if shouldBlockNow and not isBlocking then
+        setBlock(true)
+        blockStartTime = currentTime
+    end
+
+    -- 4. Handle block duration and early release
     if isBlocking then
         if earlyUnblock then
             setBlock(false)
             blockStartTime = 0
+            m1StartTime = 0
             m2StartTime = 0
-        elseif currentTime - blockStartTime >= BLOCK_DURATION then
+        elseif currentTime - blockStartTime >= BLOCK_HOLD_DURATION then
             setBlock(false)
             blockStartTime = 0
+            m1StartTime = 0
             m2StartTime = 0
         end
     end
@@ -294,7 +295,9 @@ function module.Stop()
     running = false
     setBlock(false)
     blockStartTime = 0
+    m1StartTime = 0
     m2StartTime = 0
+    m1Active = false
     m2Active = false
     for enemy, _ in pairs(debugLabels) do
         removeLabel(enemy)
