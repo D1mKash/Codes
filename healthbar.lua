@@ -1,4 +1,4 @@
---[[V5]]
+--[[V6 - Fixed Health Bars]]
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -17,7 +17,7 @@ local function getRoot(char)
     return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
 end
 
--- Create a single health bar (same as before)
+-- Create a single health bar (Enabled = false initially)
 local function createBar(char)
     local hum = char:FindFirstChild("Humanoid")
     local head = char:FindFirstChild("Head")
@@ -28,6 +28,7 @@ local function createBar(char)
     bill.StudsOffset = Vector3.new(2, 0, 0)
     bill.Adornee = head
     bill.AlwaysOnTop = true
+    bill.Enabled = false   -- start hidden
     bill.Parent = char
 
     local bg = Instance.new("Frame")
@@ -77,24 +78,30 @@ local function removeBar(char)
     end
 end
 
--- Refresh visibility every 0.5s
+-- Refresh visibility every 0.5s and on changes
 local function updateVisibility()
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
     local selfChar = localPlayer.Character
-    if not selfChar then return end
-    local selfRoot = getRoot(selfChar)
-    if not selfRoot then return end
+    local selfRoot = selfChar and getRoot(selfChar)
 
-    -- Ensure self has a bar
+    -- If we don't have a valid self, hide all bars and return
+    if not selfChar or not selfRoot then
+        for char, data in pairs(activeBars) do
+            data.billboard.Enabled = false
+        end
+        return
+    end
+
+    -- Ensure self has a bar (always shown)
     addBar(selfChar)
 
-    -- Collect distances for all characters that have bars
-    local candidates = {}
+    -- Collect distances for all OTHER characters that have bars
+    local candidates = {}   -- char -> distance
+    candidates[selfChar] = -1  -- self always visible
+
     for char, data in pairs(activeBars) do
-        if char == selfChar then
-            candidates[char] = -1  -- self always visible
-        else
+        if char ~= selfChar then
             local root = getRoot(char)
             if root then
                 local dist = (selfRoot.Position - root.Position).Magnitude
@@ -120,7 +127,7 @@ local function updateVisibility()
         visible[sorted[i].char] = true
     end
 
-    -- Apply visibility
+    -- Apply visibility to all bars
     for char, data in pairs(activeBars) do
         data.billboard.Enabled = visible[char] == true
     end
@@ -128,20 +135,38 @@ end
 
 -- Player events
 local function onPlayerAdded(player)
+    -- When a new character appears, remove the old one first
     local function onCharAdded(char)
-        task.wait(0.1)
+        -- Remove any existing bar for this player (in case of respawn)
+        for existingChar, data in pairs(activeBars) do
+            if existingChar ~= char and existingChar.Parent == player.Character then
+                -- If the old character is still in activeBars, remove it
+                -- (but it should have been destroyed already, just clean up)
+                removeBar(existingChar)
+            end
+        end
+        task.wait(0.1)  -- small delay to ensure everything loads
         addBar(char)
+        -- Immediately update visibility for this new bar
+        updateVisibility()
     end
-    if player.Character then onCharAdded(player.Character) end
+
+    if player.Character then
+        onCharAdded(player.Character)
+    end
     player.CharacterAdded:Connect(onCharAdded)
 end
 
 local function onPlayerRemoved(player)
-    if player.Character then removeBar(player.Character) end
+    if player.Character then
+        removeBar(player.Character)
+    end
 end
 
 -- Main loop
 local function startLoop()
+    -- Run an initial update immediately
+    updateVisibility()
     task.spawn(function()
         while running do
             task.wait(UPDATE_INTERVAL)
