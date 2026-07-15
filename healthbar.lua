@@ -1,79 +1,27 @@
---[[v1]]
+--[[V3]]
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local module = {}
 
 -- ===== CONFIGURATION =====
-local VISIBILITY_UPDATE_INTERVAL = 0.3   -- seconds
-local MAX_RENDER_DISTANCE = 150          -- far enough (basically disabled)
-local DEBUG_VISIBILITY = false           -- set to true to print visibility status
+local MAX_DISTANCE = 20
+local MAX_ENEMIES_SHOWN = 3
+local SELF_REFRESH_INTERVAL = 30   -- seconds
 
 -- Internal state
-local activeBars = {}
+local activeBars = {}          -- character -> {billboard, connection, ...}
 local connections = {}
-local visibilityRunning = false
-local visibilityThread = nil
+local selfRefreshThread = nil
+local running = false
 
--- Helper: get the local player's camera
-local function getCamera()
-    local camera = Workspace.CurrentCamera
-    if not camera then
-        camera = Workspace:FindFirstChildOfClass("Camera")
-    end
-    return camera
+-- Helper: get local player's root part
+local function getRoot(character)
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
 end
 
--- Check if a character is on‑screen (visible in the camera viewport)
-local function isCharacterVisible(character)
-    local head = character:FindFirstChild("Head")
-    if not head then return false end
-
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return false end
-
-    local camera = getCamera()
-    if not camera then return false end
-
-    local headPos = head.Position
-    local cameraPos = camera.CFrame.Position
-
-    -- 1. Check distance (if too far, hide)
-    local distance = (headPos - cameraPos).Magnitude
-    if distance > MAX_RENDER_DISTANCE then return false end
-
-    -- 2. Check if the head is actually in the camera's viewport
-    local screenPoint, onScreen = camera:WorldToViewportPoint(headPos)
-    if not onScreen then return false end
-
-    -- 3. Check if the head is behind the camera (z < 0 means behind)
-    if screenPoint.Z < 0 then return false end
-
-    return true
-end
-
--- Update visibility for all active bars
-local function updateAllVisibility()
-    local visibleCount = 0
-    local totalCount = 0
-
-    for character, data in pairs(activeBars) do
-        totalCount = totalCount + 1
-        local visible = isCharacterVisible(character)
-        if data.billboard then
-            data.billboard.Enabled = visible
-        end
-        if visible then visibleCount = visibleCount + 1 end
-    end
-
-    if DEBUG_VISIBILITY then
-        print(string.format("[HealthBars] Visible: %d/%d", visibleCount, totalCount))
-    end
-end
-
--- Create a health bar for a character
+-- Create a health bar for a character (same as before)
 local function createHealthBar(character)
     local humanoid = character:FindFirstChild("Humanoid")
     local head = character:FindFirstChild("Head")
@@ -86,16 +34,14 @@ local function createHealthBar(character)
     billboard.AlwaysOnTop = true
     billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     billboard.Parent = character
-    billboard.Enabled = true  -- will be updated shortly
+    billboard.Enabled = true
 
-    -- Background
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     bg.BorderSizePixel = 0
     bg.Parent = billboard
 
-    -- Health fill (bottom‑anchored)
     local fill = Instance.new("Frame")
     fill.AnchorPoint = Vector2.new(0, 1)
     fill.Position = UDim2.new(0, 0, 1, 0)
@@ -104,21 +50,18 @@ local function createHealthBar(character)
     fill.BorderSizePixel = 0
     fill.Parent = bg
 
-    -- Border
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 1
     stroke.Transparency = 0.5
     stroke.Parent = bg
 
-    -- Update health function
     local function updateHealth()
         local health = humanoid.Health
         local maxHealth = humanoid.MaxHealth
         if maxHealth > 0 then
             local ratio = math.clamp(health / maxHealth, 0, 1)
             fill.Size = UDim2.new(1, 0, ratio, 0)
-
             if ratio > 0.5 then
                 fill.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
             elseif ratio > 0.25 then
@@ -159,6 +102,74 @@ local function removeBarForCharacter(character)
     end
 end
 
+-- Refresh self bar (remove and re-add)
+local function refreshSelfBar()
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then return end
+    local char = localPlayer.Character
+    if not char then return end
+    removeBarForCharacter(char)
+    addBarForCharacter(char)
+end
+
+-- Update visibility based on distance and closest enemies
+local function updateVisibility()
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then return end
+    local selfChar = localPlayer.Character
+    if not selfChar then return end
+    local selfRoot = getRoot(selfChar)
+    if not selfRoot then return end
+
+    -- Compute distances for all characters that have bars
+    local distances = {}
+    for character, data in pairs(activeBars) do
+        if character == selfChar then
+            distances[character] = -1  -- self gets special treatment
+        else
+            local root = getRoot(character)
+            if root then
+                local dist = (selfRoot.Position - root.Position).Magnitude
+                distances[character] = dist
+            else
+                distances[character] = math.huge
+            end
+        end
+    end
+
+    -- Sort enemies by distance, take closest up to MAX_ENEMIES_SHOWN
+    local enemyList = {}
+    for character, dist in pairs(distances) do
+        if character ~= selfChar and dist <= MAX_DISTANCE then
+            table.insert(enemyList, {char = character, dist = dist})
+        end
+    end
+    table.sort(enemyList, function(a, b) return a.dist < b.dist end)
+
+    local visibleEnemies = {}
+    for i = 1, math.min(MAX_ENEMIES_SHOWN, #enemyList) do
+        visibleEnemies[enemyList[i].char] = true
+    end
+
+    -- Apply visibility: self always visible, enemies only if in the visible set
+    for character, data in pairs(activeBars) do
+        local visible = (character == selfChar) or (visibleEnemies[character] == true)
+        if data.billboard then
+            data.billboard.Enabled = visible
+        end
+    end
+end
+
+-- Start the periodic visibility update (runs every 0.5s to avoid spam)
+local function startVisibilityLoop()
+    task.spawn(function()
+        while running do
+            task.wait(0.5)
+            if running then updateVisibility() end
+        end
+    end)
+end
+
 -- Player added
 local function onPlayerAdded(player)
     local function onCharacterAdded(character)
@@ -185,52 +196,49 @@ local function onPlayerRemoved(player)
     end
 end
 
--- Start visibility loop
-local function startVisibilityLoop()
-    if visibilityRunning then return end
-    visibilityRunning = true
+-- Public API
+function module.Start()
+    if running then return end
+    running = true
 
-    visibilityThread = task.spawn(function()
-        while visibilityRunning do
-            task.wait(VISIBILITY_UPDATE_INTERVAL)
-            if visibilityRunning then
-                updateAllVisibility()
+    -- Add bars for existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        onPlayerAdded(player)
+    end
+
+    -- Connect future players
+    Players.PlayerAdded:Connect(onPlayerAdded)
+    Players.PlayerRemoved:Connect(onPlayerRemoved)
+
+    -- Start visibility loop
+    startVisibilityLoop()
+
+    -- Start self‑refresh timer
+    selfRefreshThread = task.spawn(function()
+        while running do
+            task.wait(SELF_REFRESH_INTERVAL)
+            if running then
+                refreshSelfBar()
             end
         end
     end)
 end
 
--- Stop visibility loop
-local function stopVisibilityLoop()
-    visibilityRunning = false
-    if visibilityThread then
-        task.cancel(visibilityThread)
-        visibilityThread = nil
-    end
-end
-
--- Public API
-function module.Start()
-    module.Stop()
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        onPlayerAdded(player)
-    end
-
-    Players.PlayerAdded:Connect(onPlayerAdded)
-    Players.PlayerRemoved:Connect(onPlayerRemoved)
-
-    startVisibilityLoop()
-end
-
 function module.Stop()
-    stopVisibilityLoop()
+    running = false
 
+    if selfRefreshThread then
+        task.cancel(selfRefreshThread)
+        selfRefreshThread = nil
+    end
+
+    -- Disconnect player connections
     for player, conn in pairs(connections) do
         conn:Disconnect()
     end
     connections = {}
 
+    -- Remove all bars
     for character, data in pairs(activeBars) do
         if data.connection then data.connection:Disconnect() end
         if data.billboard then data.billboard:Destroy() end
