@@ -1,91 +1,63 @@
 --[[
-    Auto Parry Module (Dynamic Animation Loader)
-    - Scans enemies within 20 studs.
-    - Holds F for 1 second when an enemy plays any animation from:
-        * ReplicatedStorage.Animations.BaseCombat (1stM1, 2ndM1, 3rdM1, 4thM1, M2)
-        * ReplicatedStorage.Animations.Combat/<any folder> (same 5 animations)
+    Auto Parry Module (Hardcoded IDs)
+    - Holds F for 1 second when an enemy within 20 studs plays any animation from the PARRY_LIST.
     - Resets the 1‑second timer on every new enemy attack.
-    - Releases early if local player plays an animation from:
-        * ReplicatedStorage.Animations.PerfectBlockAnims (any animation)
+    - Releases early if the local player plays any animation from PERFECT_BLOCK_LIST.
+    - DEBUG = true shows "ATTACKING" labels above enemies.
 ]]
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local module = {}
 
--- Configuration
+-- ===== CONFIGURATION =====
 local MAX_DISTANCE = 20
 local BLOCK_KEY = Enum.KeyCode.F
-local BLOCK_DURATION = 1        -- seconds to hold F
-local DEBUG = true              -- show "ATTACKING" labels
-local PERFECT_BLOCK_PATH = "Animations.PerfectBlockAnims"  -- change if needed
+local BLOCK_DURATION = 1          -- seconds to hold F
+local DEBUG = true                -- set false to hide debug labels
 
--- State variables
+-- All animations that trigger a parry (enemy attacks)
+local PARRY_LIST = {
+    "83491849294956", "89420531853362", "83730275893449", "106980660082799",
+    "78888626472394", "76236532060812", "74206130671324", "71919935695307",
+    "122861547142657", "92851992709496", "126612786608030", "113719263885794",
+    "136305578634960", "89039586375625", "101619248052969", "137837926745158",
+    "100981571094705", "130865087635587", "86495068205420", "120393553812903",
+    "82904229252991", "103732110215321", "103964436023727", "71676634048602",
+    "102407060635393", "96726284968458", "139911027872047", "104515319350296",
+    "74960202100098", "137034747040618", "134829666925953", "104867156139010",
+    "101347661150789", "114647502301740", "118943955490014", "127909081017342",
+    "79563637573277", "118070233153900", "98462236639320", "77710266587706",
+    "122451562066756", "114364673509520", "82903450925391", "119685134442395",
+    "107464726433388", "91485623489753", "73748315742870"
+}
+
+-- Animations that cancel the block immediately (perfect blocks)
+local PERFECT_BLOCK_LIST = {
+    "96600699015093", "90752347516770", "82979105739696", "96304721384743",
+    "138519505081692"
+}
+
+-- ===== INTERNAL STATE =====
 local running = false
 local isBlocking = false
 local blockStartTime = 0
 local debugLabels = {}
-local allowedAnimIds = {}       -- set of numeric IDs to parry
-local perfectBlockIds = {}      -- set of numeric IDs for early release
 
--- Helper: collect all Animation IDs from a folder (recursive)
-local function collectAnimationIds(folder, idSet)
-    if not folder then return end
-    for _, child in ipairs(folder:GetChildren()) do
-        if child:IsA("Animation") then
-            local id = child.AnimationId:match("%d+")
-            if id then idSet[id] = true end
-        elseif child:IsA("Folder") then
-            collectAnimationIds(child, idSet)
-        end
+-- Convert list to a lookup table for O(1) checks
+local function buildLookup(list)
+    local t = {}
+    for _, id in ipairs(list) do
+        t[id] = true
     end
+    return t
 end
 
--- Load all parry‑worthy animations from ReplicatedStorage
-local function loadAnimationSets()
-    allowedAnimIds = {}
-    perfectBlockIds = {}
+local parryLookup = buildLookup(PARRY_LIST)
+local perfectLookup = buildLookup(PERFECT_BLOCK_LIST)
 
-    local anims = ReplicatedStorage:FindFirstChild("Animations")
-    if not anims then
-        warn("Animations folder not found in ReplicatedStorage")
-        return
-    end
-
-    -- 1. BaseCombat
-    local base = anims:FindFirstChild("BaseCombat")
-    if base then collectAnimationIds(base, allowedAnimIds) end
-
-    -- 2. Combat subfolders
-    local combat = anims:FindFirstChild("Combat")
-    if combat then
-        for _, sub in ipairs(combat:GetChildren()) do
-            if sub:IsA("Folder") then
-                collectAnimationIds(sub, allowedAnimIds)
-            end
-        end
-    end
-
-    -- 3. PerfectBlockAnims (early release)
-    local perfect = anims:FindFirstChild("PerfectBlockAnims")
-    if perfect then collectAnimationIds(perfect, perfectBlockIds) end
-
-    if DEBUG then
-        print(string.format("Loaded %d parry animations, %d perfect block animations",
-            tableCount(allowedAnimIds), tableCount(perfectBlockIds)))
-    end
-end
-
--- Helper to count table size
-local function tableCount(t)
-    local c = 0
-    for _ in pairs(t) do c = c + 1 end
-    return c
-end
-
--- Key simulation
+-- ===== KEY SIMULATION =====
 local function setBlock(hold)
     if isBlocking == hold then return end
     isBlocking = hold
@@ -96,7 +68,7 @@ local function setBlock(hold)
     end
 end
 
--- Debug label management
+-- ===== DEBUG LABELS =====
 local function addLabel(character)
     if not DEBUG then return end
     if debugLabels[character] then return end
@@ -126,7 +98,7 @@ local function removeLabel(character)
     debugLabels[character] = nil
 end
 
--- Main scan function
+-- ===== MAIN SCAN =====
 local function scan()
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
@@ -136,7 +108,7 @@ local function scan()
     if not root then return end
 
     local shouldBlock = false
-    local attackingEnemies = {}   -- for debug label cleanup
+    local attackingEnemies = {}
 
     -- 1. Check enemies
     for _, player in ipairs(Players:GetPlayers()) do
@@ -155,7 +127,7 @@ local function scan()
                                     local anim = track.Animation
                                     if anim then
                                         local animId = anim.AnimationId:match("%d+")
-                                        if animId and allowedAnimIds[animId] then
+                                        if animId and parryLookup[animId] then
                                             shouldBlock = true
                                             attackingEnemies[enemy] = true
                                             addLabel(enemy)
@@ -189,7 +161,7 @@ local function scan()
                     local anim = track.Animation
                     if anim then
                         local animId = anim.AnimationId:match("%d+")
-                        if animId and perfectBlockIds[animId] then
+                        if animId and perfectLookup[animId] then
                             earlyUnblock = true
                             break
                         end
@@ -202,10 +174,10 @@ local function scan()
     -- 3. Block logic
     local currentTime = tick()
     if shouldBlock then
-        -- Reset timer on every detection (keep blocking)
+        -- Reset timer on every detection
         blockStartTime = currentTime
         if not isBlocking then
-            setBlock(true)   -- hold F
+            setBlock(true)
         end
     end
 
@@ -220,25 +192,19 @@ local function scan()
     end
 end
 
--- Start the module
+-- ===== PUBLIC API =====
 function module.Start()
     if running then return end
     running = true
-
-    -- Load animation IDs from ReplicatedStorage
-    loadAnimationSets()
-
-    -- Run scan immediately and then every 0.1 sec
     scan()
     task.spawn(function()
         while running do
-            task.wait(0.01)
+            task.wait(0.1)
             if running then scan() end
         end
     end)
 end
 
--- Stop the module
 function module.Stop()
     running = false
     setBlock(false)
