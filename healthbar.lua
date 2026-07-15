@@ -1,10 +1,4 @@
---[[
-    Vertical Health Bars Module (Visibility‑based)
-    - Bars fill from bottom to top (low health = bottom).
-    - Bars are hidden when the character is off‑screen or behind walls.
-    - Optimised: visibility updated every 0.2s; raycasts only for on‑screen chars.
-    - Works for all players (including local).
-]]
+--[[v1]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -12,12 +6,13 @@ local Workspace = game:GetService("Workspace")
 
 local module = {}
 
--- Config
-local VISIBILITY_UPDATE_INTERVAL = 0.2   -- seconds
-local RAYCAST_MAX_DISTANCE = 200         -- max distance for raycast (far enough)
+-- ===== CONFIGURATION =====
+local VISIBILITY_UPDATE_INTERVAL = 0.3   -- seconds
+local MAX_RENDER_DISTANCE = 150          -- far enough (basically disabled)
+local DEBUG_VISIBILITY = false           -- set to true to print visibility status
 
 -- Internal state
-local activeBars = {}          -- key = character, value = {billboard, connection, etc.}
+local activeBars = {}
 local connections = {}
 local visibilityRunning = false
 local visibilityThread = nil
@@ -31,13 +26,13 @@ local function getCamera()
     return camera
 end
 
--- Check if a character is visible (on‑screen and not occluded)
+-- Check if a character is on‑screen (visible in the camera viewport)
 local function isCharacterVisible(character)
     local head = character:FindFirstChild("Head")
     if not head then return false end
 
     local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return false end  -- dead = not visible
+    if not humanoid or humanoid.Health <= 0 then return false end
 
     local camera = getCamera()
     if not camera then return false end
@@ -45,43 +40,36 @@ local function isCharacterVisible(character)
     local headPos = head.Position
     local cameraPos = camera.CFrame.Position
 
-    -- 1. Check if the head is in front of the camera and on‑screen
+    -- 1. Check distance (if too far, hide)
+    local distance = (headPos - cameraPos).Magnitude
+    if distance > MAX_RENDER_DISTANCE then return false end
+
+    -- 2. Check if the head is actually in the camera's viewport
     local screenPoint, onScreen = camera:WorldToViewportPoint(headPos)
     if not onScreen then return false end
 
-    -- 2. Raycast from camera to head to check for occlusion
-    local direction = (headPos - cameraPos).Unit
-    local distance = (headPos - cameraPos).Magnitude
-    if distance > RAYCAST_MAX_DISTANCE then return false end
-
-    -- Filter out the character itself (ignore all its parts) to avoid self‑block
-    local ignoreList = {}
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            table.insert(ignoreList, part)
-        end
-    end
-
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = ignoreList
-
-    local hit = Workspace:Raycast(cameraPos, direction * distance, raycastParams)
-    if hit then
-        -- Something blocked the ray before reaching the head → not visible
-        return false
-    end
+    -- 3. Check if the head is behind the camera (z < 0 means behind)
+    if screenPoint.Z < 0 then return false end
 
     return true
 end
 
 -- Update visibility for all active bars
 local function updateAllVisibility()
+    local visibleCount = 0
+    local totalCount = 0
+
     for character, data in pairs(activeBars) do
+        totalCount = totalCount + 1
+        local visible = isCharacterVisible(character)
         if data.billboard then
-            local visible = isCharacterVisible(character)
             data.billboard.Enabled = visible
         end
+        if visible then visibleCount = visibleCount + 1 end
+    end
+
+    if DEBUG_VISIBILITY then
+        print(string.format("[HealthBars] Visible: %d/%d", visibleCount, totalCount))
     end
 end
 
@@ -98,8 +86,7 @@ local function createHealthBar(character)
     billboard.AlwaysOnTop = true
     billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     billboard.Parent = character
-    -- Initially visible (will be updated in the next cycle)
-    billboard.Enabled = true
+    billboard.Enabled = true  -- will be updated shortly
 
     -- Background
     local bg = Instance.new("Frame")
@@ -117,14 +104,14 @@ local function createHealthBar(character)
     fill.BorderSizePixel = 0
     fill.Parent = bg
 
-    -- Border stroke
+    -- Border
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 1
     stroke.Transparency = 0.5
     stroke.Parent = bg
 
-    -- Update health values
+    -- Update health function
     local function updateHealth()
         local health = humanoid.Health
         local maxHealth = humanoid.MaxHealth
@@ -175,7 +162,7 @@ end
 -- Player added
 local function onPlayerAdded(player)
     local function onCharacterAdded(character)
-        task.wait(0.1)  -- wait for character to fully load
+        task.wait(0.1)
         addBarForCharacter(character)
     end
 
@@ -198,7 +185,7 @@ local function onPlayerRemoved(player)
     end
 end
 
--- Start the visibility update loop
+-- Start visibility loop
 local function startVisibilityLoop()
     if visibilityRunning then return end
     visibilityRunning = true
@@ -213,7 +200,7 @@ local function startVisibilityLoop()
     end)
 end
 
--- Stop the visibility loop
+-- Stop visibility loop
 local function stopVisibilityLoop()
     visibilityRunning = false
     if visibilityThread then
@@ -224,32 +211,26 @@ end
 
 -- Public API
 function module.Start()
-    module.Stop()  -- clean up any previous state
+    module.Stop()
 
-    -- Add bars for existing players
     for _, player in ipairs(Players:GetPlayers()) do
         onPlayerAdded(player)
     end
 
-    -- Connect future players
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoved:Connect(onPlayerRemoved)
 
-    -- Start the visibility update loop
     startVisibilityLoop()
 end
 
 function module.Stop()
-    -- Stop the visibility loop
     stopVisibilityLoop()
 
-    -- Disconnect all player connections
     for player, conn in pairs(connections) do
         conn:Disconnect()
     end
     connections = {}
 
-    -- Destroy all bars
     for character, data in pairs(activeBars) do
         if data.connection then data.connection:Disconnect() end
         if data.billboard then data.billboard:Destroy() end
