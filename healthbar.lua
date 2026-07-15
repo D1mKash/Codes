@@ -1,33 +1,30 @@
 --[[
-    Vertical Health Bars Module
-    Adds a vertical bar on the right side of every character's head.
-    - Works for all players (including local player)
-    - Updates automatically when health changes
-    - Cleans up when stopped
+    Vertical Health Bars Module (Flipped)
+    - Bar fills from bottom to top (low health = bottom)
+    - Max render distance = 40 studs
+    - Works for all players (including local)
 ]]
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local module = {}
 
--- Track active billboards
-local activeBars = {}   -- key = character, value = {gui, connection, etc.}
+-- Track active billboards and connections
+local activeBars = {}
 local connections = {}
 
 -- Create a single health bar GUI for a character
 local function createHealthBar(character)
-    -- Ensure the character has a Humanoid and Head
     local humanoid = character:FindFirstChild("Humanoid")
     local head = character:FindFirstChild("Head")
     if not humanoid or not head then return nil end
 
-    -- Create BillboardGui
     local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 20, 0, 60)   -- Width 20, Height 60 (vertical bar)
-    billboard.StudsOffset = Vector3.new(2, 0, 0)  -- Offset to the right
+    billboard.Size = UDim2.new(0, 20, 0, 60)      -- width 20, height 60 (vertical)
+    billboard.StudsOffset = Vector3.new(2, 0, 0)  -- right side of head
     billboard.Adornee = head
     billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 40                    -- 👈 hide beyond 40 studs
     billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     billboard.Parent = character
 
@@ -38,14 +35,16 @@ local function createHealthBar(character)
     bg.BorderSizePixel = 0
     bg.Parent = billboard
 
-    -- Health fill (vertical)
+    -- Health fill – anchored to the bottom so it grows upward
     local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(1, 0, 1, 0)   -- will be updated
-    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 50)  -- green
+    fill.AnchorPoint = Vector2.new(0, 1)          -- 👈 bottom anchor
+    fill.Position = UDim2.new(0, 0, 1, 0)        -- 👈 starts at bottom
+    fill.Size = UDim2.new(1, 0, 1, 0)            -- will be updated
+    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 50) -- green
     fill.BorderSizePixel = 0
     fill.Parent = bg
 
-    -- Optional: add a thin border (UIStroke) for style
+    -- Optional thin border
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 1
@@ -58,8 +57,10 @@ local function createHealthBar(character)
         local maxHealth = humanoid.MaxHealth
         if maxHealth > 0 then
             local ratio = math.clamp(health / maxHealth, 0, 1)
+            -- Fill from bottom: set height to ratio
             fill.Size = UDim2.new(1, 0, ratio, 0)
-            -- Change colour based on health
+
+            -- Color change based on health
             if ratio > 0.5 then
                 fill.BackgroundColor3 = Color3.fromRGB(0, 200, 50)   -- green
             elseif ratio > 0.25 then
@@ -70,13 +71,10 @@ local function createHealthBar(character)
         end
     end
 
-    -- Initial update
     updateHealth()
 
-    -- Connect health changed
     local conn = humanoid.HealthChanged:Connect(updateHealth)
 
-    -- Store references for cleanup
     return {
         billboard = billboard,
         connection = conn,
@@ -84,9 +82,9 @@ local function createHealthBar(character)
     }
 end
 
--- Add a bar for a character (if not already added)
+-- Add bar for a character
 local function addBarForCharacter(character)
-    if activeBars[character] then return end   -- already exists
+    if activeBars[character] then return end
     local data = createHealthBar(character)
     if data then
         activeBars[character] = data
@@ -103,62 +101,51 @@ local function removeBarForCharacter(character)
     end
 end
 
--- Handle player added
+-- Player added
 local function onPlayerAdded(player)
-    -- When character spawns, add bar
     local function onCharacterAdded(character)
-        -- Wait a tiny bit to ensure Humanoid is fully loaded
         task.wait(0.1)
         addBarForCharacter(character)
     end
 
-    -- If player already has a character, add immediately
     if player.Character then
         onCharacterAdded(player.Character)
     end
 
-    -- Connect future character additions
     local conn = player.CharacterAdded:Connect(onCharacterAdded)
     connections[player] = conn
 end
 
--- Handle player removed
+-- Player removed
 local function onPlayerRemoved(player)
     local conn = connections[player]
     if conn then conn:Disconnect() end
     connections[player] = nil
 
-    -- Remove any bars for this player's characters
-    -- (We also need to remove the bar for the character if it exists)
     if player.Character then
         removeBarForCharacter(player.Character)
     end
 end
 
--- Start the module: set up all players and events
+-- Start
 function module.Start()
-    -- Clear any previous state (just in case)
-    module.Stop()
+    module.Stop() -- cleanup first
 
-    -- Add bars for existing players
     for _, player in ipairs(Players:GetPlayers()) do
         onPlayerAdded(player)
     end
 
-    -- Connect future players
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoved:Connect(onPlayerRemoved)
 end
 
--- Stop the module: remove all bars and disconnect events
+-- Stop
 function module.Stop()
-    -- Disconnect all player-added connections
     for player, conn in pairs(connections) do
         conn:Disconnect()
     end
     connections = {}
 
-    -- Remove all existing bars
     for character, data in pairs(activeBars) do
         if data.connection then data.connection:Disconnect() end
         if data.billboard then data.billboard:Destroy() end
