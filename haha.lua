@@ -32,7 +32,7 @@ local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
 ------------------------------------------------
--- NEW: Infinity Landed variables
+-- Infinity Landed variables
 ------------------------------------------------
 
 local infinityScanToken = 0
@@ -336,7 +336,7 @@ local function doBlueBuffCombo()
 end
 
 ------------------------------------------------
--- NEW: Infinity Landed scan and sequence
+-- INFINITY LANDED SCAN AND SEQUENCE (UPDATED)
 ------------------------------------------------
 
 local function startInfinityScan()
@@ -361,13 +361,14 @@ local function startInfinityScan()
 				-- Found – start the sequence
 				infinitySequenceRunning = true
 
-				-- Execute the key sequence
+				-- Execute the key sequence with updated delays
+				task.wait(0.1)              -- NEW initial delay
 				pressKey(Enum.KeyCode.Space)  -- Press Space
 				task.wait(0.1)
 				pressKey(Enum.KeyCode.Two)    -- Press 2
 				task.wait(1)
 				pressKey(Enum.KeyCode.One)    -- Press 1
-				task.wait(0.2)
+				task.wait(0.6)                -- CHANGED from 0.2 to 0.6
 				pressKey(Enum.KeyCode.Space)  -- Press Space again
 				task.wait(0.2)
 				pressKey(Enum.KeyCode.Three)  -- Press 3
@@ -399,7 +400,6 @@ local function onInputBegan(input, gameProcessed)
 		doBlueBuffCombo()
 	end
 
-	-- NEW: Infinity Landed feature on key 4
 	if input.KeyCode == Enum.KeyCode.Four then
 		startInfinityScan()
 	end
