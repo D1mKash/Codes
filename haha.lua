@@ -168,6 +168,19 @@ local function lift()
 end
 
 ------------------------------------------------
+-- DOUBLE JUMP HELPER (NEW)
+------------------------------------------------
+
+local function doAirJump()
+	local char = getCharacter()
+	if not char then return end
+	local root = getRoot(char)
+	if root then
+		root.AssemblyLinearVelocity = Vector3.new(0, 30, 0) -- upward burst
+	end
+end
+
+------------------------------------------------
 -- STEP TO OFFSET, THEN NORMAL LOCK
 ------------------------------------------------
 
@@ -361,17 +374,18 @@ local function startInfinityScan()
 				-- Found – start the sequence
 				infinitySequenceRunning = true
 
-				-- Execute the key sequence with updated delays
-				task.wait(0.1)              -- NEW initial delay
-				pressKey(Enum.KeyCode.Space)  -- Press Space
+				-- Execute the key sequence with updated delays and double jump
+				task.wait(0.3)                  -- initial delay (changed from 0.1)
+				pressKey(Enum.KeyCode.Space)    -- first Space
 				task.wait(0.1)
-				pressKey(Enum.KeyCode.Two)    -- Press 2
+				pressKey(Enum.KeyCode.Two)      -- 2
 				task.wait(1)
-				pressKey(Enum.KeyCode.One)    -- Press 1
-				task.wait(0.6)                -- CHANGED from 0.2 to 0.6
-				pressKey(Enum.KeyCode.Space)  -- Press Space again
-				task.wait(0.2)
-				pressKey(Enum.KeyCode.Three)  -- Press 3
+				pressKey(Enum.KeyCode.One)      -- 1
+				task.wait(1.0)                  -- changed from 0.6 to 1.0
+				pressKey(Enum.KeyCode.Space)    -- second Space
+				doAirJump()                     -- artificial double jump (upward burst)
+				task.wait(0.2)                  -- wait before final 3
+				pressKey(Enum.KeyCode.Three)    -- 3
 
 				-- Sequence done
 				infinitySequenceRunning = false
