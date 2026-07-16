@@ -367,9 +367,9 @@ local function startInfinityScan()
 				-- Use pcall to ensure gravity is restored even if error occurs
 				local success, err = pcall(function()
 					-- Sequence with updated delays and gravity manipulation
-					task.wait(0.2)                   -- initial delay (changed from 0.3)
+					task.wait(0.15)                   -- initial delay (changed from 0.3)
 					pressKey(Enum.KeyCode.Space)     -- first Space
-					task.wait(0.1)
+					task.wait(0.07)
 					pressKey(Enum.KeyCode.Two)       -- 2
 					task.wait(1)
 					pressKey(Enum.KeyCode.One)       -- 1
