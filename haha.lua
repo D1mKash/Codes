@@ -168,19 +168,6 @@ local function lift()
 end
 
 ------------------------------------------------
--- DOUBLE JUMP HELPER (NEW)
-------------------------------------------------
-
-local function doAirJump()
-	local char = getCharacter()
-	if not char then return end
-	local root = getRoot(char)
-	if root then
-		root.AssemblyLinearVelocity = Vector3.new(0, 30, 0) -- upward burst
-	end
-end
-
-------------------------------------------------
 -- STEP TO OFFSET, THEN NORMAL LOCK
 ------------------------------------------------
 
@@ -374,20 +361,46 @@ local function startInfinityScan()
 				-- Found – start the sequence
 				infinitySequenceRunning = true
 
-				-- Execute the key sequence with updated delays and double jump
-				task.wait(0.3)                  -- initial delay (changed from 0.1)
-				pressKey(Enum.KeyCode.Space)    -- first Space
-				task.wait(0.1)
-				pressKey(Enum.KeyCode.Two)      -- 2
-				task.wait(1)
-				pressKey(Enum.KeyCode.One)      -- 1
-				task.wait(1.0)                  -- changed from 0.6 to 1.0
-				pressKey(Enum.KeyCode.Space)    -- second Space
-				doAirJump()                     -- artificial double jump (upward burst)
-				task.wait(0.2)                  -- wait before final 3
-				pressKey(Enum.KeyCode.Three)    -- 3
+				-- Store original gravity to restore later
+				local originalGravity = workspace.Gravity
 
-				-- Sequence done
+				-- Use pcall to ensure gravity is restored even if error occurs
+				local success, err = pcall(function()
+					-- Sequence with updated delays and gravity manipulation
+					task.wait(0.2)                   -- initial delay (changed from 0.3)
+					pressKey(Enum.KeyCode.Space)     -- first Space
+					task.wait(0.1)
+					pressKey(Enum.KeyCode.Two)       -- 2
+					task.wait(1)
+					pressKey(Enum.KeyCode.One)       -- 1
+					task.wait(1.7)                   -- changed from 1.0 to 1.7
+
+					-- Disable gravity
+					workspace.Gravity = 0
+
+					-- Apply upward velocity to simulate jump (now gravity is off)
+					local char = getCharacter()
+					if char then
+						local root = getRoot(char)
+						if root then
+							root.AssemblyLinearVelocity = Vector3.new(0, 30, 0)
+						end
+					end
+
+					pressKey(Enum.KeyCode.Space)     -- second Space (while gravity is off)
+					task.wait(0.2)
+					pressKey(Enum.KeyCode.Three)     -- 3
+				end)
+
+				-- Restore gravity regardless of success/failure
+				workspace.Gravity = originalGravity
+
+				-- If an error occurred, you could optionally print it
+				if not success then
+					warn("Infinity sequence error: " .. tostring(err))
+				end
+
+				-- Mark sequence as finished
 				infinitySequenceRunning = false
 				return
 			end
