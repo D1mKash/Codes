@@ -383,7 +383,7 @@ local function startInfinityScan()
 					if char then
 						local root = getRoot(char)
 						if root then
-							root.AssemblyLinearVelocity = Vector3.new(0, 30, 0)
+							root.AssemblyLinearVelocity = Vector3.new(0, 20, 0)
 						end
 					end
 
