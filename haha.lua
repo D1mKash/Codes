@@ -32,6 +32,13 @@ local BLUE_BACK_DISTANCE = 3
 local BLUE_RANGE = 7
 
 ------------------------------------------------
+-- NEW: Infinity Landed variables
+------------------------------------------------
+
+local infinityScanToken = 0
+local infinitySequenceRunning = false
+
+------------------------------------------------
 -- BASIC HELPERS
 ------------------------------------------------
 
@@ -329,6 +336,54 @@ local function doBlueBuffCombo()
 end
 
 ------------------------------------------------
+-- NEW: Infinity Landed scan and sequence
+------------------------------------------------
+
+local function startInfinityScan()
+	-- Ignore if a sequence is already running
+	if infinitySequenceRunning then return end
+
+	-- Increment token to cancel any previous scan
+	infinityScanToken += 1
+	local myToken = infinityScanToken
+
+	task.spawn(function()
+		local startTime = os.clock()
+		-- Scan for up to 2 seconds
+		while os.clock() - startTime < 2 do
+			-- If token changed, this scan is obsolete
+			if infinityScanToken ~= myToken then
+				return
+			end
+
+			-- Check if "INFINITYLANDED" exists in character
+			if hasInCharacter("INFINITYLANDED") then
+				-- Found – start the sequence
+				infinitySequenceRunning = true
+
+				-- Execute the key sequence
+				pressKey(Enum.KeyCode.Space)  -- Press Space
+				task.wait(0.1)
+				pressKey(Enum.KeyCode.Two)    -- Press 2
+				task.wait(1)
+				pressKey(Enum.KeyCode.One)    -- Press 1
+				task.wait(0.2)
+				pressKey(Enum.KeyCode.Space)  -- Press Space again
+				task.wait(0.2)
+				pressKey(Enum.KeyCode.Three)  -- Press 3
+
+				-- Sequence done
+				infinitySequenceRunning = false
+				return
+			end
+
+			task.wait(0.1) -- check every 0.1 seconds
+		end
+		-- Timeout: do nothing
+	end)
+end
+
+------------------------------------------------
 -- INPUT HANDLER
 ------------------------------------------------
 
@@ -342,6 +397,11 @@ local function onInputBegan(input, gameProcessed)
 
 	if input.KeyCode == Enum.KeyCode.Z then
 		doBlueBuffCombo()
+	end
+
+	-- NEW: Infinity Landed feature on key 4
+	if input.KeyCode == Enum.KeyCode.Four then
+		startInfinityScan()
 	end
 end
 
