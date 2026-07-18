@@ -19,14 +19,15 @@ local SHORT_ANIMATIONS = {
     "8320258247",
     "8321532463",
     "8321564926",
+    --
+    "1470482438", -- DOWNTILT
+    "1461277837",
 }
 
 -- Animation IDs that trigger a 0.4 second scan (long)
 local LONG_ANIMATIONS = {
     "1461145506",
     "1470472673",
-    "1470482438",
-    "1461277837",
 }
 
 local running = false
