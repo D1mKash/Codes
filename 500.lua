@@ -95,7 +95,7 @@ local function handleJumpDisable(animId)
 end
 
 -- --------------------------------------------------------------------
--- Scan function (unchanged)
+-- Scan function
 -- --------------------------------------------------------------------
 local function scan(duration)
     if scanning or clickPending then
@@ -130,7 +130,7 @@ local function scan(duration)
         clickPending = true
 
         releaseNow()
-        task.wait(0.3)   -- <-- changed from 0.4 to 0.3
+        task.wait(0.2)   -- <-- changed from 0.3 to 0.2
         performClick()
 
         clickPending = false
@@ -138,7 +138,7 @@ local function scan(duration)
 end
 
 -- --------------------------------------------------------------------
--- Animation detector (modified to also call jump disable)
+-- Animation detector
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -258,7 +258,7 @@ function Module.Stop()
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then
-                hum.JumpPower = 35  -- <-- changed from 50 to 35
+                hum.JumpPower = 35
             end
         end
         jumpDisabled = false
