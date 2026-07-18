@@ -1,31 +1,32 @@
 local Module = {}
 
 local Players = game:GetService("Players")
-local VIM = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
-    "1461128166",
+    "1461128166", -- FIST
     "1461128859",
     "1461136273",
     "1461136875",
-    "1470422387",
+    --
+    "1470422387", -- SWORD
     "1470439852",
     "1470449816",
     "1470447472",
+    --
+    "92901308072582", -- CLEAVER
+    "8320258247",
+    "8321532463",
+    "8321564926",
 }
 
 -- Animation IDs that trigger a 0.4 second scan (long)
 local LONG_ANIMATIONS = {
     "1461145506",
     "1470472673",
-}
-
--- Animations that should trigger the special Space + Click combo
-local SPECIAL_CLICK_ANIMATIONS = {
-    "1470447472",
-    "1461136875",
+    "1470482438",
+    "1461277837",
 }
 
 local running = false
@@ -35,79 +36,20 @@ local animator = nil
 local active = {}
 
 -- --------------------------------------------------------------------
--- Input helpers (exactly like haha.lua)
+-- Mouse functions
 -- --------------------------------------------------------------------
-
-local function holdKeyDown(key)
-    VIM:SendKeyEvent(true, key, false, game)
+local function releaseNow()
+    mouse1release()
 end
 
-local function holdKeyUp(key)
-    VIM:SendKeyEvent(false, key, false, game)
-end
-
-local function holdMouseDown()
-    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
-end
-
-local function holdMouseUp()
-    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
-end
-
-local function mouseClick()
-    -- use the executor's built-in if available, else VIM
-    if type(mouse1click) == "function" then
-        mouse1click()
-    else
-        holdMouseDown()
-        task.wait(0.05)
-        holdMouseUp()
-    end
+local function performClick()
+    mouse1click()
 end
 
 -- --------------------------------------------------------------------
--- Hold Space + left click for 0.5 seconds
+-- Scan function (with click delay based on animation type)
 -- --------------------------------------------------------------------
-local function holdSpaceAndClick()
-    holdKeyDown(Enum.KeyCode.Space)
-    holdMouseDown()
-    task.wait(0.5)
-    holdMouseUp()
-    holdKeyUp(Enum.KeyCode.Space)
-end
-
--- --------------------------------------------------------------------
--- Check backpack for Configuration objects with COOLDOWN condition
--- --------------------------------------------------------------------
-local function shouldUseSpaceCombo()
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then return false end
-
-    local targetNames = {
-        "Sonido Clones",
-        "Cero",
-        "Kyoka Suigetsu",
-        "Grab",
-        "Bisecting Slash",
-    }
-
-    for _, child in ipairs(backpack:GetChildren()) do
-        for _, name in ipairs(targetNames) do
-            if child.Name == name then
-                local cooldown = child:GetAttribute("COOLDOWN")
-                if cooldown == nil or cooldown == 20 then
-                    return true
-                end
-            end
-        end
-    end
-    return false
-end
-
--- --------------------------------------------------------------------
--- Scan function
--- --------------------------------------------------------------------
-local function scan(duration, isLong, matchedId)
+local function scan(duration, isLong)
     if scanning or clickPending then
         return
     end
@@ -139,29 +81,11 @@ local function scan(duration, isLong, matchedId)
     if success then
         clickPending = true
 
+        releaseNow()
         -- Click delay depends on animation type
         local clickDelay = isLong and 0.5 or 0.22
         task.wait(clickDelay)
-
-        -- Decide what to do: normal click, or Space + click
-        local useSpaceCombo = false
-        if matchedId then
-            for _, id in ipairs(SPECIAL_CLICK_ANIMATIONS) do
-                if matchedId == id then
-                    if shouldUseSpaceCombo() then
-                        useSpaceCombo = true
-                    end
-                    break
-                end
-            end
-        end
-
-        if useSpaceCombo then
-            print("🔥 [DEBUG] Using Space + Click combo (0.5s hold)")
-            holdSpaceAndClick()
-        else
-            mouseClick()
-        end
+        performClick()
 
         clickPending = false
     end
@@ -191,7 +115,6 @@ local function checkAnimations()
 
             local matched = false
             local duration = 0.3
-            local matchedId = nil
             local isLong = false
 
             -- Check short animations
@@ -199,7 +122,6 @@ local function checkAnimations()
                 if string.find(id, animId) then
                     matched = true
                     duration = 0.3
-                    matchedId = animId
                     isLong = false
                     break
                 end
@@ -211,16 +133,16 @@ local function checkAnimations()
                     if string.find(id, animId) then
                         matched = true
                         duration = 0.4
-                        matchedId = animId
                         isLong = true
                         break
                     end
                 end
             end
 
+            -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
-                task.spawn(scan, duration, isLong, matchedId)
+                task.spawn(scan, duration, isLong)
             end
         end
     end
@@ -234,7 +156,7 @@ local function checkAnimations()
 end
 
 -- --------------------------------------------------------------------
--- Setup and loop
+-- Character setup
 -- --------------------------------------------------------------------
 local function setup(char)
     local hum = char:WaitForChild("Humanoid")
@@ -242,6 +164,9 @@ local function setup(char)
     table.clear(active)
 end
 
+-- --------------------------------------------------------------------
+-- Main loop (0.05s check interval)
+-- --------------------------------------------------------------------
 local function loop()
     task.spawn(function()
         while running do
