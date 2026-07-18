@@ -84,7 +84,7 @@ local function scan(duration, isLong)
 
         releaseNow()
         -- Click delay depends on animation type
-        local clickDelay = isLong and 0.5 or 0.22
+        local clickDelay = isLong and 0.5 or 0.21
         task.wait(clickDelay)
         performClick()
 
