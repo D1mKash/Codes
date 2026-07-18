@@ -71,7 +71,7 @@ end
 local function getAdjustedDelay(baseDelay)
     local ping = getPing()
     if ping > 40 then
-        local reduction = math.floor((ping - 40) / 20) * 0.01
+        local reduction = math.floor((ping - 40) / 10) * 0.01
         return math.max(0, baseDelay - reduction)
     end
     return baseDelay
@@ -156,14 +156,14 @@ local function checkAnimations()
 
             local matched = false
             local duration = 0.3
-            local baseDelay = 0.22   -- SHORT default
+            local baseDelay = 0.215   -- SHORT default
 
             -- Check SHORT
             for _, animId in ipairs(SHORT_ANIMATIONS) do
                 if string.find(id, animId) then
                     matched = true
                     duration = 0.3
-                    baseDelay = 0.22
+                    baseDelay = 0.215
                     break
                 end
             end
