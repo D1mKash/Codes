@@ -2,41 +2,41 @@ local Module = {}
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local Stats = game:GetService("Stats")   -- for ping
+local StatsService = game:GetService("Stats")
 
--- --------------------------------------------------------------------
--- Animation groups: each defines scan duration and base click delay
--- --------------------------------------------------------------------
-local GROUPS = {
-    SHORT = {
-        ids = {
-            "1461128166", "1461128859", "1461136273",
-            "1470422387", "1470439852", "1470449816",
-            "92901308072582", "8320258247", "8321532463",
-            "1470482438", "1461277837",
-        },
-        scanDuration = 0.3,
-        baseClickDelay = 0.21,
-    },
-    LONG = {
-        ids = { "1461145506", "1470472673" },
-        scanDuration = 0.4,
-        baseClickDelay = 0.5,
-    },
-    LAST = {
-        ids = { "1461136875", "1470447472", "8321564926" },
-        scanDuration = 0.3,
-        baseClickDelay = 0.1,
-    },
+-- Animation IDs that trigger a 0.3 second scan (short)
+local SHORT_ANIMATIONS = {
+    "1461128166", -- FIST
+    "1461128859",
+    "1461136273",
+    -- moved 1461136875 to LAST
+    --
+    "1470422387", -- SWORD
+    "1470439852",
+    "1470449816",
+    -- moved 1470447472 to LAST
+    --
+    "92901308072582", -- CLEAVER
+    "8320258247",
+    "8321532463",
+    -- moved 8321564926 to LAST
+    --
+    "1470482438", -- DOWNTILT
+    "1461277837",
 }
 
--- Build a reverse map: animationId → group info
-local animationMap = {}
-for _, group in pairs(GROUPS) do
-    for _, id in ipairs(group.ids) do
-        animationMap[id] = group
-    end
-end
+-- Animation IDs that trigger a 0.4 second scan (long)
+local LONG_ANIMATIONS = {
+    "1461145506",
+    "1470472673",
+}
+
+-- NEW: Animation IDs that trigger a 0.3 second scan but with a 0.1 base click delay
+local LAST_ANIMATIONS = {
+    "1461136875",
+    "1470447472",
+    "8321564926",
+}
 
 local running = false
 local scanning = false
@@ -45,13 +45,33 @@ local animator = nil
 local active = {}
 
 -- --------------------------------------------------------------------
--- Ping adjustment: subtract 0.01 for every 20ms above 40ms
+-- Ping retrieval (Roblox standard)
+-- --------------------------------------------------------------------
+local function getPing()
+    local network = StatsService:FindFirstChild("Network")
+    if network then
+        local serverStats = network:FindFirstChild("ServerStatsItem")
+        if serverStats then
+            local pingItem = serverStats:FindFirstChild("Data/Ping")
+            if pingItem then
+                local val = pingItem:GetValueString()
+                if val then
+                    return tonumber(val) or 0
+                end
+            end
+        end
+    end
+    return 0
+end
+
+-- --------------------------------------------------------------------
+-- Adjust delay based on ping: subtract 0.01 for every 20ms above 40ms
 -- --------------------------------------------------------------------
 local function getAdjustedDelay(baseDelay)
-    local ping = Stats.Ping or 0
+    local ping = getPing()
     if ping > 40 then
-        local adjustment = math.floor((ping - 40) / 20) * 0.01
-        return math.max(0, baseDelay - adjustment)   -- never negative
+        local reduction = math.floor((ping - 40) / 20) * 0.01
+        return math.max(0, baseDelay - reduction)
     end
     return baseDelay
 end
@@ -68,7 +88,7 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
--- Scan function – now receives base click delay (adjusted later)
+-- Scan function (duration + base click delay)
 -- --------------------------------------------------------------------
 local function scan(duration, baseClickDelay)
     if scanning or clickPending then
@@ -103,7 +123,6 @@ local function scan(duration, baseClickDelay)
         clickPending = true
 
         releaseNow()
-        -- Compute final delay with current ping
         local finalDelay = getAdjustedDelay(baseClickDelay)
         task.wait(finalDelay)
         performClick()
@@ -113,7 +132,7 @@ local function scan(duration, baseClickDelay)
 end
 
 -- --------------------------------------------------------------------
--- Animation detector
+-- Animation detector (unchanged except we also check LAST_ANIMATIONS)
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -134,19 +153,48 @@ local function checkAnimations()
             local id = track.Animation.AnimationId
             current[id] = true
 
-            -- Look up the animation ID in the map
-            local group = nil
-            for animId, info in pairs(animationMap) do
+            local matched = false
+            local duration = 0.3
+            local baseDelay = 0.21   -- default for SHORT
+
+            -- Check SHORT
+            for _, animId in ipairs(SHORT_ANIMATIONS) do
                 if string.find(id, animId) then
-                    group = info
+                    matched = true
+                    duration = 0.3
+                    baseDelay = 0.21
                     break
                 end
             end
 
+            -- Check LONG if not matched yet
+            if not matched then
+                for _, animId in ipairs(LONG_ANIMATIONS) do
+                    if string.find(id, animId) then
+                        matched = true
+                        duration = 0.4
+                        baseDelay = 0.5
+                        break
+                    end
+                end
+            end
+
+            -- Check LAST if still not matched
+            if not matched then
+                for _, animId in ipairs(LAST_ANIMATIONS) do
+                    if string.find(id, animId) then
+                        matched = true
+                        duration = 0.3
+                        baseDelay = 0.1
+                        break
+                    end
+                end
+            end
+
             -- If matched and not already processed
-            if group and not active[id] and not scanning and not clickPending then
+            if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
-                task.spawn(scan, group.scanDuration, group.baseClickDelay)
+                task.spawn(scan, duration, baseDelay)
             end
         end
     end
