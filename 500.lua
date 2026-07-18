@@ -13,12 +13,20 @@ local SHORT_ANIMATIONS = {
     "1470439852",
     "1470449816",
     "1470447472",
+    "1470482438",
+    "1461277837",
 }
 
 -- Animation IDs that trigger a 0.4 second scan
 local LONG_ANIMATIONS = {
     "1461145506",
     "1470472673",
+}
+
+-- Animations that require jump power modification
+local JUMP_CHECK_ANIMATIONS = {
+    "1461136875",
+    "1470447472",
 }
 
 local running = false
@@ -35,7 +43,7 @@ local function performClick()
     mouse1click()
 end
 
-local function scan(duration)
+local function scan(duration, triggerAnimId)
     if scanning or clickPending then
         return
     end
@@ -67,9 +75,36 @@ local function scan(duration)
     if success then
         clickPending = true
 
+        local shouldRestoreJump = false
+        local originalJumpPower = 0
+
+        -- Check if we need to modify jump power
+        if triggerAnimId and table.find(JUMP_CHECK_ANIMATIONS, triggerAnimId) then
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum:GetState() ~= Enum.HumanoidStateType.Falling then
+                    shouldRestoreJump = true
+                    originalJumpPower = hum.JumpPower
+                    hum.JumpPower = 0
+                end
+            end
+        end
+
         releaseNow()
-        task.wait(0.4)
+        task.wait(0.3)
         performClick()
+
+        -- Restore jump power if it was changed
+        if shouldRestoreJump then
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.JumpPower = originalJumpPower
+                end
+            end
+        end
 
         clickPending = false
     end
@@ -96,11 +131,13 @@ local function checkAnimations()
 
             local matched = false
             local duration = 0.3
+            local matchedId = nil
 
             for _, animId in ipairs(SHORT_ANIMATIONS) do
                 if string.find(id, animId) then
                     matched = true
                     duration = 0.3
+                    matchedId = animId
                     break
                 end
             end
@@ -110,6 +147,7 @@ local function checkAnimations()
                     if string.find(id, animId) then
                         matched = true
                         duration = 0.4
+                        matchedId = animId
                         break
                     end
                 end
@@ -117,7 +155,7 @@ local function checkAnimations()
 
             if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
-                task.spawn(scan, duration)
+                task.spawn(scan, duration, matchedId)
             end
         end
     end
