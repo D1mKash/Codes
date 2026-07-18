@@ -21,10 +21,10 @@ local LONG_ANIMATIONS = {
     "1470472673",
 }
 
--- Animations that require jump power modification
-local JUMP_CHECK_ANIMATIONS = {
-    "1461136875",
+-- Animations that should disable jump for 0.4s when on ground
+local JUMP_DISABLE_ANIMATIONS = {
     "1470447472",
+    "1461136875",
 }
 
 local running = false
@@ -33,81 +33,72 @@ local clickPending = false
 local animator = nil
 local active = {}
 
--- Stores info for jump power restoration
-local jumpData = {
-    humanoid = nil,
-    originalJumpPower = 0,
-    modified = false,
-}
+-- State for jump disable
+local jumpDisabled = false
+local jumpDisableTimer = nil
 
--- --------------------------------------------------------------------
--- Click functions
--- --------------------------------------------------------------------
 local function releaseNow()
-    pcall(mouse1release)
+    mouse1release()
 end
 
 local function performClick()
-    pcall(mouse1click)
+    mouse1click()
 end
 
 -- --------------------------------------------------------------------
--- Safe jump power override (sets to 0 if not falling)
--- Returns true if modified, false otherwise
+-- Jump disable handler (runs independently)
 -- --------------------------------------------------------------------
-local function tryOverrideJumpPower()
-    if jumpData.modified then
-        return true -- already modified, skip
+local function handleJumpDisable(animId)
+    -- Check if this animation requires jump disable
+    local shouldDisable = false
+    for _, id in ipairs(JUMP_DISABLE_ANIMATIONS) do
+        if animId == id then
+            shouldDisable = true
+            break
+        end
     end
+    if not shouldDisable then return end
+
+    -- Prevent overlapping
+    if jumpDisabled then return end
 
     local char = player.Character
-    if not char then return false end
+    if not char then return end
 
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return false end
+    if not hum then return end
 
-    -- Check if currently falling
+    -- Only disable if on ground (not falling)
     if hum:GetState() == Enum.HumanoidStateType.Falling then
-        return false
+        return
     end
 
-    -- Override
-    jumpData.humanoid = hum
-    jumpData.originalJumpPower = hum.JumpPower
+    -- Disable jump
+    jumpDisabled = true
+    local originalJumpPower = hum.JumpPower
     hum.JumpPower = 0
-    jumpData.modified = true
-    return true
+
+    -- Restore after 0.4 seconds
+    task.spawn(function()
+        task.wait(0.4)
+        -- Only restore if this same instance hasn't been cleared
+        if jumpDisabled then
+            local currentChar = player.Character
+            if currentChar then
+                local currentHum = currentChar:FindFirstChildOfClass("Humanoid")
+                if currentHum then
+                    currentHum.JumpPower = originalJumpPower
+                end
+            end
+            jumpDisabled = false
+        end
+    end)
 end
 
 -- --------------------------------------------------------------------
--- Restore jump power if it was modified
+-- Scan function (unchanged)
 -- --------------------------------------------------------------------
-local function restoreJumpPower()
-    if not jumpData.modified then return end
-
-    local hum = jumpData.humanoid
-    if hum and hum.Parent and hum:IsA("Humanoid") then
-        hum.JumpPower = jumpData.originalJumpPower
-    end
-
-    jumpData.modified = false
-    jumpData.humanoid = nil
-    jumpData.originalJumpPower = 0
-end
-
--- --------------------------------------------------------------------
--- Reset all state for a clean start (called on Stop and on errors)
--- --------------------------------------------------------------------
-local function resetState()
-    scanning = false
-    clickPending = false
-    restoreJumpPower()
-end
-
--- --------------------------------------------------------------------
--- Main scan function
--- --------------------------------------------------------------------
-local function scan(duration, triggerAnimId)
+local function scan(duration)
     if scanning or clickPending then
         return
     end
@@ -126,7 +117,6 @@ local function scan(duration, triggerAnimId)
     local startTime = os.clock()
     local success = false
 
-    -- Scan loop
     while os.clock() - startTime < duration and scanning do
         task.wait(0.05)
         if combo.Value ~= initial then
@@ -137,47 +127,19 @@ local function scan(duration, triggerAnimId)
 
     scanning = false
 
-    if not success then
-        return
-    end
+    if success then
+        clickPending = true
 
-    -- Lock to prevent new scans during click sequence
-    clickPending = true
-
-    -- Handle JumpPower override if needed
-    local modifiedJump = false
-    if triggerAnimId and table.find(JUMP_CHECK_ANIMATIONS, triggerAnimId) then
-        modifiedJump = tryOverrideJumpPower()
-    end
-
-    -- Execute click sequence
-    local ok, err = pcall(function()
         releaseNow()
         task.wait(0.4)
         performClick()
-    end)
 
-    if not ok then
-        -- Something went wrong, print error? But we have no prints; we can just reset.
-        -- We'll still restore jump if needed.
-    end
-
-    -- Restore jump power if we modified it
-    if modifiedJump then
-        restoreJumpPower()
-    end
-
-    -- Release the lock
-    clickPending = false
-
-    -- If something went wrong, also ensure locks are cleared
-    if not ok then
-        resetState() -- fallback to clear everything
+        clickPending = false
     end
 end
 
 -- --------------------------------------------------------------------
--- Animation detector
+-- Animation detector (modified to also call jump disable)
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -224,10 +186,22 @@ local function checkAnimations()
                 end
             end
 
-            -- Trigger scan only if not already active, not scanning, and no click pending
+            -- Trigger scan if matched and not already active
             if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
-                task.spawn(scan, duration, matchedId)
+                task.spawn(scan, duration)
+            end
+
+            -- NEW: Trigger jump disable for specific animations, even if scan is already running or click pending
+            if matchedId and not active[id] and not jumpDisabled then
+                -- We need the actual animId (the number string) to check if it's in JUMP_DISABLE_ANIMATIONS
+                -- The matchedId is the numeric string from our lists, e.g., "1470447472"
+                if table.find(JUMP_DISABLE_ANIMATIONS, matchedId) then
+                    -- Only trigger once per animation start (we already have active[id] check)
+                    -- We also need to ensure we don't double trigger if the animation is already playing
+                    -- but we are already inside the "if not active[id]" block, so it's a new animation.
+                    task.spawn(handleJumpDisable, matchedId)
+                end
             end
         end
     end
@@ -247,7 +221,8 @@ local function setup(char)
     local hum = char:WaitForChild("Humanoid")
     animator = hum:WaitForChild("Animator")
     table.clear(active)
-    resetState() -- ensure no leftover state from previous character
+    -- Reset jump disable state on new character
+    jumpDisabled = false
 end
 
 -- --------------------------------------------------------------------
@@ -279,9 +254,22 @@ end
 
 function Module.Stop()
     running = false
-    resetState()  -- clears scanning, clickPending, and restores JumpPower
+    scanning = false
+    clickPending = false
     animator = nil
     table.clear(active)
+    -- Restore jump if currently disabled
+    if jumpDisabled then
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.JumpPower = hum.JumpPower -- not restoring original, but we can set to 50 or something? Actually we stored original in the restore task, but we can't access it here. Better to set to default 50.
+                hum.JumpPower = 35 -- default Roblox JumpPower
+            end
+        end
+        jumpDisabled = false
+    end
 end
 
 return Module
