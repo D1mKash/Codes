@@ -5,14 +5,20 @@ local player = Players.LocalPlayer
 
 -- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
-    "1461128166",
+    "1461128166", -- FIST
     "1461128859",
     "1461136273",
     "1461136875",
-    "1470422387",
+    --
+    "1470422387", -- SWORD
     "1470439852",
     "1470449816",
     "1470447472",
+    --
+    "92901308072582", -- NANAMI
+    "8320258247",
+    "8321532463",
+    "8321564926",
 }
 
 -- Animation IDs that trigger a 0.4 second scan (long)
@@ -48,12 +54,10 @@ end
 -- Space key functions using Potassium API
 -- --------------------------------------------------------------------
 local function pressSpace()
-    -- Potassium uses keypress() to simulate pressing a key
-    keypress(0x20)  -- 0x20 is the hex code for Space
+    keypress(0x20)
 end
 
 local function releaseSpace()
-    -- Potassium uses keyrelease() to simulate releasing a key
     keyrelease(0x20)
 end
 
@@ -61,25 +65,21 @@ end
 -- Special Space + Click combo
 -- --------------------------------------------------------------------
 local function holdSpaceAndClick()
-    -- Press Space down
     pressSpace()
-    -- Left click at the same time
     mouse1click()
-    -- Wait 0.5 seconds
     task.wait(0.5)
-    -- Release Space
     releaseSpace()
 end
 
 -- --------------------------------------------------------------------
--- Check backpack for specific tools and their COOLDOWN attribute
+-- Check backpack for specific Configuration objects and their COOLDOWN
 -- Returns true if we should use the Space combo
 -- --------------------------------------------------------------------
 local function shouldUseSpaceCombo()
     local backpack = player:FindFirstChild("Backpack")
     if not backpack then return false end
 
-    local toolNames = {
+    local targetNames = {
         "Sonido Clones",
         "Cero",
         "Kyoka Suigetsu",
@@ -87,14 +87,14 @@ local function shouldUseSpaceCombo()
         "Bisecting Slash",
     }
 
+    -- Check ALL children in Backpack (not just Tools)
     for _, child in ipairs(backpack:GetChildren()) do
-        if child:IsA("Tool") then
-            for _, name in ipairs(toolNames) do
-                if child.Name == name then
-                    local cooldown = child:GetAttribute("COOLDOWN")
-                    if cooldown == nil or cooldown == 20 then
-                        return true
-                    end
+        for _, name in ipairs(targetNames) do
+            if child.Name == name then
+                local cooldown = child:GetAttribute("COOLDOWN")
+                -- If COOLDOWN doesn't exist OR equals 20 → use Space combo
+                if cooldown == nil or cooldown == 20 then
+                    return true
                 end
             end
         end
