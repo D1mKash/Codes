@@ -1,6 +1,7 @@
 local Module = {}
 
 local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- Animation IDs that trigger a 0.3 second scan (short)
@@ -21,26 +22,17 @@ local LONG_ANIMATIONS = {
     "1470472673",
 }
 
--- Animations that should disable jump for 0.7 seconds
-local JUMP_DISABLE_ANIMATIONS = {
+-- Animations that should trigger the special Space + Click combo
+local SPECIAL_CLICK_ANIMATIONS = {
     "1470447472",
     "1461136875",
-    "1470449816",
-    "1461136273",   -- added
 }
 
 local running = false
 local scanning = false
 local clickPending = false
 local animator = nil
-local active = {}   -- tracks animations that have already been processed
-
--- Jump disable state
-local jumpData = {
-    disabled = false,
-    originalJumpPower = 0,
-    cancelRestore = false,
-}
+local active = {}
 
 -- --------------------------------------------------------------------
 -- Mouse functions
@@ -54,74 +46,55 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
--- Restore jump immediately (used when LONG animation plays)
+-- Special Space + Click combo
 -- --------------------------------------------------------------------
-local function restoreJumpNow()
-    if not jumpData.disabled then return end
-
-    jumpData.cancelRestore = true   -- cancel the scheduled restore
-    local char = player.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.JumpPower = jumpData.originalJumpPower
-        end
-    end
-    jumpData.disabled = false
-    jumpData.originalJumpPower = 0
+local function holdSpaceAndClick()
+    -- Press Space down
+    VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+    -- Left click at the same time
+    mouse1click()
+    -- Wait 0.5 seconds
+    task.wait(0.5)
+    -- Release Space
+    VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
 end
 
 -- --------------------------------------------------------------------
--- Jump disable handler (disables for 0.7s, with cancel support)
+-- Check backpack for specific tools and their COOLDOWN attribute
+-- Returns true if we should use the Space combo
 -- --------------------------------------------------------------------
-local function handleJumpDisable(animId)
-    -- Check if this animation is in the disable list
-    local shouldDisable = false
-    for _, id in ipairs(JUMP_DISABLE_ANIMATIONS) do
-        if animId == id then
-            shouldDisable = true
-            break
-        end
-    end
-    if not shouldDisable then return end
+local function shouldUseSpaceCombo()
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return false end
 
-    -- Prevent overlapping disables
-    if jumpData.disabled then return end
+    local toolNames = {
+        "Sonido Clones",
+        "Cero",
+        "Kyoka Suigetsu",
+        "Grab",
+        "Bisecting Slash",
+    }
 
-    local char = player.Character
-    if not char then return end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-
-    -- Disable jump
-    jumpData.disabled = true
-    jumpData.originalJumpPower = hum.JumpPower
-    jumpData.cancelRestore = false
-    hum.JumpPower = 0
-
-    -- Schedule restore after 0.7 seconds
-    task.spawn(function()
-        task.wait(0.7)
-        -- Only restore if not cancelled and still disabled
-        if not jumpData.cancelRestore and jumpData.disabled then
-            local currentChar = player.Character
-            if currentChar then
-                local currentHum = currentChar:FindFirstChildOfClass("Humanoid")
-                if currentHum then
-                    currentHum.JumpPower = jumpData.originalJumpPower
+    for _, child in ipairs(backpack:GetChildren()) do
+        if child:IsA("Tool") then
+            for _, name in ipairs(toolNames) do
+                if child.Name == name then
+                    local cooldown = child:GetAttribute("COOLDOWN")
+                    -- If COOLDOWN doesn't exist OR equals 20 → use Space combo
+                    if cooldown == nil or cooldown == 20 then
+                        return true
+                    end
                 end
             end
-            jumpData.disabled = false
-            jumpData.originalJumpPower = 0
         end
-    end)
+    end
+    return false
 end
 
 -- --------------------------------------------------------------------
 -- Scan function (with click delay based on animation type)
 -- --------------------------------------------------------------------
-local function scan(duration, isLong)
+local function scan(duration, isLong, matchedId)
     if scanning or clickPending then
         return
     end
@@ -154,17 +127,36 @@ local function scan(duration, isLong)
         clickPending = true
 
         releaseNow()
+
         -- Click delay depends on animation type
         local clickDelay = isLong and 0.5 or 0.25
         task.wait(clickDelay)
-        performClick()
+
+        -- Decide what to do: normal click, or Space + click
+        local useSpaceCombo = false
+        if matchedId then
+            for _, id in ipairs(SPECIAL_CLICK_ANIMATIONS) do
+                if matchedId == id then
+                    if shouldUseSpaceCombo() then
+                        useSpaceCombo = true
+                    end
+                    break
+                end
+            end
+        end
+
+        if useSpaceCombo then
+            holdSpaceAndClick()
+        else
+            performClick()
+        end
 
         clickPending = false
     end
 end
 
 -- --------------------------------------------------------------------
--- Animation detector (FIXED: jump disable now triggers)
+-- Animation detector
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -209,10 +201,6 @@ local function checkAnimations()
                         duration = 0.4
                         matchedId = animId
                         isLong = true
-
-                        -- LONG animation detected: restore JumpPower immediately
-                        restoreJumpNow()
-
                         break
                     end
                 end
@@ -220,20 +208,9 @@ local function checkAnimations()
 
             -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
-                -- Spawn the scan task
-                task.spawn(scan, duration, isLong)
-
-                -- Spawn jump disable if this animation is in the disable list
-                if matchedId and not jumpData.disabled then
-                    for _, jid in ipairs(JUMP_DISABLE_ANIMATIONS) do
-                        if matchedId == jid then
-                            task.spawn(handleJumpDisable, matchedId)
-                            break
-                        end
-                    end
-                end
-
-                -- Mark as processed so we don't retrigger
+                -- Spawn the scan task, passing the matchedId
+                task.spawn(scan, duration, isLong, matchedId)
+                -- Mark as processed
                 active[id] = true
             end
         end
@@ -254,18 +231,10 @@ local function setup(char)
     local hum = char:WaitForChild("Humanoid")
     animator = hum:WaitForChild("Animator")
     table.clear(active)
-
-    -- Reset jump state on new character
-    if jumpData.disabled then
-        restoreJumpNow()
-    end
-    jumpData.disabled = false
-    jumpData.originalJumpPower = 0
-    jumpData.cancelRestore = false
 end
 
 -- --------------------------------------------------------------------
--- Main loop (faster: 0.05)
+-- Main loop
 -- --------------------------------------------------------------------
 local function loop()
     task.spawn(function()
@@ -297,20 +266,6 @@ function Module.Stop()
     clickPending = false
     animator = nil
     table.clear(active)
-
-    -- Restore jump if currently disabled (default to 35)
-    if jumpData.disabled then
-        local char = player.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.JumpPower = 35
-            end
-        end
-        jumpData.disabled = false
-        jumpData.originalJumpPower = 0
-        jumpData.cancelRestore = false
-    end
 end
 
 return Module
