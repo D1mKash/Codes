@@ -3,7 +3,7 @@ local Module = {}
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Animation IDs that trigger a 0.3 second scan
+-- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
     "1461128166",
     "1461128859",
@@ -15,16 +15,18 @@ local SHORT_ANIMATIONS = {
     "1470447472",
 }
 
--- Animation IDs that trigger a 0.4 second scan
+-- Animation IDs that trigger a 0.4 second scan (long)
 local LONG_ANIMATIONS = {
     "1461145506",
     "1470472673",
 }
 
--- Animations that should disable jump for 0.4s when on ground
+-- Animations that should disable jump for 0.7 seconds
 local JUMP_DISABLE_ANIMATIONS = {
     "1470447472",
     "1461136875",
+    "1470449816",
+    "1461136273",   -- added
 }
 
 local running = false
@@ -33,10 +35,16 @@ local clickPending = false
 local animator = nil
 local active = {}
 
--- State for jump disable
-local jumpDisabled = false
-local jumpDisableTimer = nil
+-- Jump disable state
+local jumpData = {
+    disabled = false,
+    originalJumpPower = 0,
+    cancelRestore = false,
+}
 
+-- --------------------------------------------------------------------
+-- Mouse functions
+-- --------------------------------------------------------------------
 local function releaseNow()
     mouse1release()
 end
@@ -46,10 +54,28 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
--- Jump disable handler (runs independently)
+-- Restore jump immediately (used when LONG animation plays)
+-- --------------------------------------------------------------------
+local function restoreJumpNow()
+    if not jumpData.disabled then return end
+
+    jumpData.cancelRestore = true   -- tell the scheduled restore to skip
+    local char = player.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.JumpPower = jumpData.originalJumpPower
+        end
+    end
+    jumpData.disabled = false
+    jumpData.originalJumpPower = 0
+end
+
+-- --------------------------------------------------------------------
+-- Jump disable handler (disables for 0.7s, with cancel support)
 -- --------------------------------------------------------------------
 local function handleJumpDisable(animId)
-    -- Check if this animation requires jump disable
+    -- Check if this animation is in the disable list
     local shouldDisable = false
     for _, id in ipairs(JUMP_DISABLE_ANIMATIONS) do
         if animId == id then
@@ -59,8 +85,8 @@ local function handleJumpDisable(animId)
     end
     if not shouldDisable then return end
 
-    -- Prevent overlapping
-    if jumpDisabled then return end
+    -- Prevent overlapping disables
+    if jumpData.disabled then return end
 
     local char = player.Character
     if not char then return end
@@ -68,36 +94,35 @@ local function handleJumpDisable(animId)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
 
-    -- Only disable if on ground (not falling)
-    if hum:GetState() == Enum.HumanoidStateType.Falling then
-        return
-    end
-
     -- Disable jump
-    jumpDisabled = true
-    local originalJumpPower = hum.JumpPower
+    jumpData.disabled = true
+    jumpData.originalJumpPower = hum.JumpPower
+    jumpData.cancelRestore = false
     hum.JumpPower = 0
 
-    -- Restore after 0.4 seconds
+    -- Schedule restore after 0.7 seconds
     task.spawn(function()
-        task.wait(0.4)
-        if jumpDisabled then
+        task.wait(0.7)
+        -- Only restore if not cancelled and still disabled
+        if not jumpData.cancelRestore and jumpData.disabled then
             local currentChar = player.Character
             if currentChar then
                 local currentHum = currentChar:FindFirstChildOfClass("Humanoid")
                 if currentHum then
-                    currentHum.JumpPower = originalJumpPower
+                    currentHum.JumpPower = jumpData.originalJumpPower
                 end
             end
-            jumpDisabled = false
+            jumpData.disabled = false
+            jumpData.originalJumpPower = 0
         end
+        -- If cancelled, we do nothing because restoreJumpNow already handled it
     end)
 end
 
 -- --------------------------------------------------------------------
--- Scan function
+-- Scan function (with click delay based on animation type)
 -- --------------------------------------------------------------------
-local function scan(duration)
+local function scan(duration, isLong)
     if scanning or clickPending then
         return
     end
@@ -130,7 +155,9 @@ local function scan(duration)
         clickPending = true
 
         releaseNow()
-        task.wait(0.2)   -- <-- changed from 0.3 to 0.2
+        -- Click delay depends on animation type
+        local clickDelay = isLong and 0.5 or 0.3
+        task.wait(clickDelay)
         performClick()
 
         clickPending = false
@@ -162,6 +189,7 @@ local function checkAnimations()
             local matched = false
             local duration = 0.3
             local matchedId = nil
+            local isLong = false
 
             -- Check short animations
             for _, animId in ipairs(SHORT_ANIMATIONS) do
@@ -169,6 +197,7 @@ local function checkAnimations()
                     matched = true
                     duration = 0.3
                     matchedId = animId
+                    isLong = false
                     break
                 end
             end
@@ -180,6 +209,11 @@ local function checkAnimations()
                         matched = true
                         duration = 0.4
                         matchedId = animId
+                        isLong = true
+
+                        -- LONG animation detected: restore JumpPower immediately
+                        restoreJumpNow()
+
                         break
                     end
                 end
@@ -188,11 +222,11 @@ local function checkAnimations()
             -- Trigger scan if matched and not already active
             if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
-                task.spawn(scan, duration)
+                task.spawn(scan, duration, isLong)
             end
 
-            -- Jump disable for specific animations
-            if matchedId and not active[id] and not jumpDisabled then
+            -- Jump disable for specific animations (only if not already disabled)
+            if matchedId and not active[id] and not jumpData.disabled then
                 if table.find(JUMP_DISABLE_ANIMATIONS, matchedId) then
                     task.spawn(handleJumpDisable, matchedId)
                 end
@@ -215,16 +249,22 @@ local function setup(char)
     local hum = char:WaitForChild("Humanoid")
     animator = hum:WaitForChild("Animator")
     table.clear(active)
-    jumpDisabled = false
+    -- Reset jump state
+    if jumpData.disabled then
+        restoreJumpNow()
+    end
+    jumpData.disabled = false
+    jumpData.originalJumpPower = 0
+    jumpData.cancelRestore = false
 end
 
 -- --------------------------------------------------------------------
--- Main loop
+-- Main loop (faster: 0.05)
 -- --------------------------------------------------------------------
 local function loop()
     task.spawn(function()
         while running do
-            task.wait(0.1)
+            task.wait(0.05)   -- faster detection
             checkAnimations()
         end
     end)
@@ -252,8 +292,8 @@ function Module.Stop()
     animator = nil
     table.clear(active)
 
-    -- Restore jump if currently disabled (default to 35)
-    if jumpDisabled then
+    -- Restore jump if currently disabled (use default 35)
+    if jumpData.disabled then
         local char = player.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
@@ -261,7 +301,9 @@ function Module.Stop()
                 hum.JumpPower = 35
             end
         end
-        jumpDisabled = false
+        jumpData.disabled = false
+        jumpData.originalJumpPower = 0
+        jumpData.cancelRestore = false
     end
 end
 
