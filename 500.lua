@@ -81,7 +81,6 @@ local function handleJumpDisable(animId)
     -- Restore after 0.4 seconds
     task.spawn(function()
         task.wait(0.4)
-        -- Only restore if this same instance hasn't been cleared
         if jumpDisabled then
             local currentChar = player.Character
             if currentChar then
@@ -131,7 +130,7 @@ local function scan(duration)
         clickPending = true
 
         releaseNow()
-        task.wait(0.4)
+        task.wait(0.3)   -- <-- changed from 0.4 to 0.3
         performClick()
 
         clickPending = false
@@ -192,14 +191,9 @@ local function checkAnimations()
                 task.spawn(scan, duration)
             end
 
-            -- NEW: Trigger jump disable for specific animations, even if scan is already running or click pending
+            -- Jump disable for specific animations
             if matchedId and not active[id] and not jumpDisabled then
-                -- We need the actual animId (the number string) to check if it's in JUMP_DISABLE_ANIMATIONS
-                -- The matchedId is the numeric string from our lists, e.g., "1470447472"
                 if table.find(JUMP_DISABLE_ANIMATIONS, matchedId) then
-                    -- Only trigger once per animation start (we already have active[id] check)
-                    -- We also need to ensure we don't double trigger if the animation is already playing
-                    -- but we are already inside the "if not active[id]" block, so it's a new animation.
                     task.spawn(handleJumpDisable, matchedId)
                 end
             end
@@ -221,7 +215,6 @@ local function setup(char)
     local hum = char:WaitForChild("Humanoid")
     animator = hum:WaitForChild("Animator")
     table.clear(active)
-    -- Reset jump disable state on new character
     jumpDisabled = false
 end
 
@@ -258,14 +251,14 @@ function Module.Stop()
     clickPending = false
     animator = nil
     table.clear(active)
-    -- Restore jump if currently disabled
+
+    -- Restore jump if currently disabled (default to 35)
     if jumpDisabled then
         local char = player.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then
-                hum.JumpPower = hum.JumpPower -- not restoring original, but we can set to 50 or something? Actually we stored original in the restore task, but we can't access it here. Better to set to default 50.
-                hum.JumpPower = 35 -- default Roblox JumpPower
+                hum.JumpPower = 35  -- <-- changed from 50 to 35
             end
         end
         jumpDisabled = false
