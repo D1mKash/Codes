@@ -33,7 +33,7 @@ local running = false
 local scanning = false
 local clickPending = false
 local animator = nil
-local active = {}
+local active = {}   -- tracks animations that have already been processed
 
 -- Jump disable state
 local jumpData = {
@@ -59,7 +59,7 @@ end
 local function restoreJumpNow()
     if not jumpData.disabled then return end
 
-    jumpData.cancelRestore = true   -- tell the scheduled restore to skip
+    jumpData.cancelRestore = true   -- cancel the scheduled restore
     local char = player.Character
     if char then
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -115,7 +115,6 @@ local function handleJumpDisable(animId)
             jumpData.disabled = false
             jumpData.originalJumpPower = 0
         end
-        -- If cancelled, we do nothing because restoreJumpNow already handled it
     end)
 end
 
@@ -165,7 +164,7 @@ local function scan(duration, isLong)
 end
 
 -- --------------------------------------------------------------------
--- Animation detector
+-- Animation detector (FIXED: jump disable now triggers)
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -219,17 +218,23 @@ local function checkAnimations()
                 end
             end
 
-            -- Trigger scan if matched and not already active
+            -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
-                active[id] = true
+                -- Spawn the scan task
                 task.spawn(scan, duration, isLong)
-            end
 
-            -- Jump disable for specific animations (only if not already disabled)
-            if matchedId and not active[id] and not jumpData.disabled then
-                if table.find(JUMP_DISABLE_ANIMATIONS, matchedId) then
-                    task.spawn(handleJumpDisable, matchedId)
+                -- Spawn jump disable if this animation is in the disable list
+                if matchedId and not jumpData.disabled then
+                    for _, jid in ipairs(JUMP_DISABLE_ANIMATIONS) do
+                        if matchedId == jid then
+                            task.spawn(handleJumpDisable, matchedId)
+                            break
+                        end
+                    end
                 end
+
+                -- Mark as processed so we don't retrigger
+                active[id] = true
             end
         end
     end
@@ -249,7 +254,8 @@ local function setup(char)
     local hum = char:WaitForChild("Humanoid")
     animator = hum:WaitForChild("Animator")
     table.clear(active)
-    -- Reset jump state
+
+    -- Reset jump state on new character
     if jumpData.disabled then
         restoreJumpNow()
     end
@@ -264,7 +270,7 @@ end
 local function loop()
     task.spawn(function()
         while running do
-            task.wait(0.05)   -- faster detection
+            task.wait(0.05)
             checkAnimations()
         end
     end)
@@ -292,7 +298,7 @@ function Module.Stop()
     animator = nil
     table.clear(active)
 
-    -- Restore jump if currently disabled (use default 35)
+    -- Restore jump if currently disabled (default to 35)
     if jumpData.disabled then
         local char = player.Character
         if char then
