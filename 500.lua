@@ -35,14 +35,8 @@ local animator = nil
 local active = {}
 
 -- --------------------------------------------------------------------
--- Input functions (using VirtualInputManager, proven to work)
+-- Input helpers (exactly like haha.lua)
 -- --------------------------------------------------------------------
-
-local function pressKey(key)
-    VIM:SendKeyEvent(true, key, false, game)
-    task.wait(0.01)
-    VIM:SendKeyEvent(false, key, false, game)
-end
 
 local function holdKeyDown(key)
     VIM:SendKeyEvent(true, key, false, game)
@@ -61,8 +55,7 @@ local function holdMouseUp()
 end
 
 local function mouseClick()
-    -- Simple click using the executor's built-in function (if it works)
-    -- Fallback to VIM if needed.
+    -- use the executor's built-in if available, else VIM
     if type(mouse1click) == "function" then
         mouse1click()
     else
@@ -73,18 +66,18 @@ local function mouseClick()
 end
 
 -- --------------------------------------------------------------------
--- Special Space + Click combo (hold both for 0.5 seconds)
+-- Hold Space + left click for 0.5 seconds
 -- --------------------------------------------------------------------
 local function holdSpaceAndClick()
-    holdKeyDown(Enum.KeyCode.Space)   -- press Space
-    holdMouseDown()                   -- press left mouse
-    task.wait(0.5)                    -- hold both for 0.5 seconds
-    holdMouseUp()                     -- release mouse
-    holdKeyUp(Enum.KeyCode.Space)     -- release Space
+    holdKeyDown(Enum.KeyCode.Space)
+    holdMouseDown()
+    task.wait(0.5)
+    holdMouseUp()
+    holdKeyUp(Enum.KeyCode.Space)
 end
 
 -- --------------------------------------------------------------------
--- Check backpack for specific Configuration objects and their COOLDOWN
+-- Check backpack for Configuration objects with COOLDOWN condition
 -- --------------------------------------------------------------------
 local function shouldUseSpaceCombo()
     local backpack = player:FindFirstChild("Backpack")
@@ -112,7 +105,7 @@ local function shouldUseSpaceCombo()
 end
 
 -- --------------------------------------------------------------------
--- Scan function (with click delay based on animation type)
+-- Scan function
 -- --------------------------------------------------------------------
 local function scan(duration, isLong, matchedId)
     if scanning or clickPending then
@@ -146,11 +139,8 @@ local function scan(duration, isLong, matchedId)
     if success then
         clickPending = true
 
-        -- Release mouse first (if it was held)
-        holdMouseUp()
-
         -- Click delay depends on animation type
-        local clickDelay = isLong and 0.5 or 0.3
+        local clickDelay = isLong and 0.5 or 0.22
         task.wait(clickDelay)
 
         -- Decide what to do: normal click, or Space + click
@@ -167,6 +157,7 @@ local function scan(duration, isLong, matchedId)
         end
 
         if useSpaceCombo then
+            print("🔥 [DEBUG] Using Space + Click combo (0.5s hold)")
             holdSpaceAndClick()
         else
             mouseClick()
@@ -227,10 +218,9 @@ local function checkAnimations()
                 end
             end
 
-            -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
-                task.spawn(scan, duration, isLong, matchedId)
                 active[id] = true
+                task.spawn(scan, duration, isLong, matchedId)
             end
         end
     end
@@ -244,7 +234,7 @@ local function checkAnimations()
 end
 
 -- --------------------------------------------------------------------
--- Character setup
+-- Setup and loop
 -- --------------------------------------------------------------------
 local function setup(char)
     local hum = char:WaitForChild("Humanoid")
@@ -252,9 +242,6 @@ local function setup(char)
     table.clear(active)
 end
 
--- --------------------------------------------------------------------
--- Main loop (0.05s check interval)
--- --------------------------------------------------------------------
 local function loop()
     task.spawn(function()
         while running do
