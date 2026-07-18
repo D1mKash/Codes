@@ -2,24 +2,20 @@ local Module = {}
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local StatsService = game:GetService("Stats")
 
 -- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
     "1461128166", -- FIST
     "1461128859",
     "1461136273",
-    -- moved 1461136875 to LAST
     --
     "1470422387", -- SWORD
     "1470439852",
     "1470449816",
-    -- moved 1470447472 to LAST
     --
     "92901308072582", -- CLEAVER
     "8320258247",
     "8321532463",
-    -- moved 8321564926 to LAST
     --
     "1470482438", -- DOWNTILT
     "1461277837",
@@ -31,7 +27,7 @@ local LONG_ANIMATIONS = {
     "1470472673",
 }
 
--- NEW: Animation IDs that trigger a 0.3 second scan but with a 0.1 base click delay
+-- NEW: Animation IDs with 0.3 scan duration and 0.1 base click delay
 local LAST_ANIMATIONS = {
     "1461136875",
     "1470447472",
@@ -45,18 +41,22 @@ local animator = nil
 local active = {}
 
 -- --------------------------------------------------------------------
--- Ping retrieval (Roblox standard)
+-- Get current ping from the GUI label (e.g., "32 ms")
 -- --------------------------------------------------------------------
 local function getPing()
-    local network = StatsService:FindFirstChild("Network")
-    if network then
-        local serverStats = network:FindFirstChild("ServerStatsItem")
-        if serverStats then
-            local pingItem = serverStats:FindFirstChild("Data/Ping")
-            if pingItem then
-                local val = pingItem:GetValueString()
-                if val then
-                    return tonumber(val) or 0
+    local gui = player:FindFirstChild("PlayerGui")
+    if gui then
+        local pingInfo = gui:FindFirstChild("PingInfo")
+        if pingInfo then
+            local liveStats = pingInfo:FindFirstChild("LiveStats")
+            if liveStats then
+                local label = liveStats:FindFirstChild("ping")
+                if label and label:IsA("TextLabel") then
+                    local text = label.Text
+                    local num = tonumber(text:match("%d+"))
+                    if num then
+                        return num
+                    end
                 end
             end
         end
@@ -65,7 +65,8 @@ local function getPing()
 end
 
 -- --------------------------------------------------------------------
--- Adjust delay based on ping: subtract 0.01 for every 20ms above 40ms
+-- Adjust delay based on ping:
+-- subtract 0.01 for every 20 ms above 40 ms
 -- --------------------------------------------------------------------
 local function getAdjustedDelay(baseDelay)
     local ping = getPing()
@@ -88,7 +89,7 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
--- Scan function (duration + base click delay)
+-- Scan function
 -- --------------------------------------------------------------------
 local function scan(duration, baseClickDelay)
     if scanning or clickPending then
@@ -132,7 +133,7 @@ local function scan(duration, baseClickDelay)
 end
 
 -- --------------------------------------------------------------------
--- Animation detector (unchanged except we also check LAST_ANIMATIONS)
+-- Animation detector
 -- --------------------------------------------------------------------
 local function checkAnimations()
     local char = player.Character
@@ -155,7 +156,7 @@ local function checkAnimations()
 
             local matched = false
             local duration = 0.3
-            local baseDelay = 0.21   -- default for SHORT
+            local baseDelay = 0.21   -- SHORT default
 
             -- Check SHORT
             for _, animId in ipairs(SHORT_ANIMATIONS) do
@@ -167,7 +168,7 @@ local function checkAnimations()
                 end
             end
 
-            -- Check LONG if not matched yet
+            -- Check LONG
             if not matched then
                 for _, animId in ipairs(LONG_ANIMATIONS) do
                     if string.find(id, animId) then
@@ -179,7 +180,7 @@ local function checkAnimations()
                 end
             end
 
-            -- Check LAST if still not matched
+            -- Check LAST (new)
             if not matched then
                 for _, animId in ipairs(LAST_ANIMATIONS) do
                     if string.find(id, animId) then
@@ -191,7 +192,6 @@ local function checkAnimations()
                 end
             end
 
-            -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
                 active[id] = true
                 task.spawn(scan, duration, baseDelay)
