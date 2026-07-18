@@ -156,14 +156,14 @@ local function checkAnimations()
 
             local matched = false
             local duration = 0.3
-            local baseDelay = 0.21   -- SHORT default
+            local baseDelay = 0.22   -- SHORT default
 
             -- Check SHORT
             for _, animId in ipairs(SHORT_ANIMATIONS) do
                 if string.find(id, animId) then
                     matched = true
                     duration = 0.3
-                    baseDelay = 0.21
+                    baseDelay = 0.22
                     break
                 end
             end
