@@ -1,7 +1,6 @@
 local Module = {}
 
 local Players = game:GetService("Players")
-local VIM = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- Animation IDs that trigger a 0.3 second scan (short)
@@ -46,17 +45,30 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
+-- Space key functions using Potassium API
+-- --------------------------------------------------------------------
+local function pressSpace()
+    -- Potassium uses keypress() to simulate pressing a key
+    keypress(0x20)  -- 0x20 is the hex code for Space
+end
+
+local function releaseSpace()
+    -- Potassium uses keyrelease() to simulate releasing a key
+    keyrelease(0x20)
+end
+
+-- --------------------------------------------------------------------
 -- Special Space + Click combo
 -- --------------------------------------------------------------------
 local function holdSpaceAndClick()
     -- Press Space down
-    VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+    pressSpace()
     -- Left click at the same time
     mouse1click()
     -- Wait 0.5 seconds
     task.wait(0.5)
     -- Release Space
-    VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    releaseSpace()
 end
 
 -- --------------------------------------------------------------------
@@ -80,7 +92,6 @@ local function shouldUseSpaceCombo()
             for _, name in ipairs(toolNames) do
                 if child.Name == name then
                     local cooldown = child:GetAttribute("COOLDOWN")
-                    -- If COOLDOWN doesn't exist OR equals 20 → use Space combo
                     if cooldown == nil or cooldown == 20 then
                         return true
                     end
@@ -129,7 +140,7 @@ local function scan(duration, isLong, matchedId)
         releaseNow()
 
         -- Click delay depends on animation type
-        local clickDelay = isLong and 0.5 or 0.25
+        local clickDelay = isLong and 0.5 or 0.22
         task.wait(clickDelay)
 
         -- Decide what to do: normal click, or Space + click
@@ -208,9 +219,7 @@ local function checkAnimations()
 
             -- If matched and not already processed
             if matched and not active[id] and not scanning and not clickPending then
-                -- Spawn the scan task, passing the matchedId
                 task.spawn(scan, duration, isLong, matchedId)
-                -- Mark as processed
                 active[id] = true
             end
         end
