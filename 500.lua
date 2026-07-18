@@ -1,24 +1,19 @@
 local Module = {}
 
 local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
-    "1461128166", -- FIST
+    "1461128166",
     "1461128859",
     "1461136273",
     "1461136875",
-    --
-    "1470422387", -- SWORD
+    "1470422387",
     "1470439852",
     "1470449816",
     "1470447472",
-    --
-    "92901308072582", -- NANAMI
-    "8320258247",
-    "8321532463",
-    "8321564926",
 }
 
 -- Animation IDs that trigger a 0.4 second scan (long)
@@ -40,40 +35,56 @@ local animator = nil
 local active = {}
 
 -- --------------------------------------------------------------------
--- Mouse functions
+-- Input functions (using VirtualInputManager, proven to work)
 -- --------------------------------------------------------------------
-local function releaseNow()
-    mouse1release()
+
+local function pressKey(key)
+    VIM:SendKeyEvent(true, key, false, game)
+    task.wait(0.01)
+    VIM:SendKeyEvent(false, key, false, game)
 end
 
-local function performClick()
-    mouse1click()
+local function holdKeyDown(key)
+    VIM:SendKeyEvent(true, key, false, game)
+end
+
+local function holdKeyUp(key)
+    VIM:SendKeyEvent(false, key, false, game)
+end
+
+local function holdMouseDown()
+    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
+end
+
+local function holdMouseUp()
+    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
+end
+
+local function mouseClick()
+    -- Simple click using the executor's built-in function (if it works)
+    -- Fallback to VIM if needed.
+    if type(mouse1click) == "function" then
+        mouse1click()
+    else
+        holdMouseDown()
+        task.wait(0.05)
+        holdMouseUp()
+    end
 end
 
 -- --------------------------------------------------------------------
--- Space key functions using Potassium API
--- --------------------------------------------------------------------
-local function pressSpace()
-    keypress(0x20)
-end
-
-local function releaseSpace()
-    keyrelease(0x20)
-end
-
--- --------------------------------------------------------------------
--- Special Space + Click combo
+-- Special Space + Click combo (hold both for 0.5 seconds)
 -- --------------------------------------------------------------------
 local function holdSpaceAndClick()
-    pressSpace()
-    mouse1click()
-    task.wait(0.5)
-    releaseSpace()
+    holdKeyDown(Enum.KeyCode.Space)   -- press Space
+    holdMouseDown()                   -- press left mouse
+    task.wait(0.5)                    -- hold both for 0.5 seconds
+    holdMouseUp()                     -- release mouse
+    holdKeyUp(Enum.KeyCode.Space)     -- release Space
 end
 
 -- --------------------------------------------------------------------
 -- Check backpack for specific Configuration objects and their COOLDOWN
--- Returns true if we should use the Space combo
 -- --------------------------------------------------------------------
 local function shouldUseSpaceCombo()
     local backpack = player:FindFirstChild("Backpack")
@@ -87,12 +98,10 @@ local function shouldUseSpaceCombo()
         "Bisecting Slash",
     }
 
-    -- Check ALL children in Backpack (not just Tools)
     for _, child in ipairs(backpack:GetChildren()) do
         for _, name in ipairs(targetNames) do
             if child.Name == name then
                 local cooldown = child:GetAttribute("COOLDOWN")
-                -- If COOLDOWN doesn't exist OR equals 20 → use Space combo
                 if cooldown == nil or cooldown == 20 then
                     return true
                 end
@@ -137,10 +146,11 @@ local function scan(duration, isLong, matchedId)
     if success then
         clickPending = true
 
-        releaseNow()
+        -- Release mouse first (if it was held)
+        holdMouseUp()
 
         -- Click delay depends on animation type
-        local clickDelay = isLong and 0.5 or 0.22
+        local clickDelay = isLong and 0.5 or 0.3
         task.wait(clickDelay)
 
         -- Decide what to do: normal click, or Space + click
@@ -159,7 +169,7 @@ local function scan(duration, isLong, matchedId)
         if useSpaceCombo then
             holdSpaceAndClick()
         else
-            performClick()
+            mouseClick()
         end
 
         clickPending = false
@@ -243,7 +253,7 @@ local function setup(char)
 end
 
 -- --------------------------------------------------------------------
--- Main loop
+-- Main loop (0.05s check interval)
 -- --------------------------------------------------------------------
 local function loop()
     task.spawn(function()
