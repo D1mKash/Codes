@@ -376,7 +376,7 @@ local function startInfinityScan()
 					task.wait(1.7)                   -- changed from 1.0 to 1.7
 
 					-- Lowers gravity
-					workspace.Gravity = 40
+					workspace.Gravity = 20
 
 					-- Apply upward velocity to simulate jump (now gravity is off)
 					local char = getCharacter()
