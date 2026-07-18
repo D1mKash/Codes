@@ -13,8 +13,6 @@ local SHORT_ANIMATIONS = {
     "1470439852",
     "1470449816",
     "1470447472",
-    "1470482438",
-    "1461277837",
 }
 
 -- Animation IDs that trigger a 0.4 second scan
@@ -92,7 +90,7 @@ local function scan(duration, triggerAnimId)
         end
 
         releaseNow()
-        task.wait(0.3)
+        task.wait(0.4)
         performClick()
 
         -- Restore jump power if it was changed
