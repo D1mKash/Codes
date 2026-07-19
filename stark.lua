@@ -8,15 +8,16 @@ local player = Players.LocalPlayer
 local ANIM_CERO = "rbxassetid://1470532199"   -- triggers 3+4
 local ANIM_OTHER = "rbxassetid://1461157246"  -- triggers 1
 
--- Scan durations (seconds)
-local SCAN_CERO = 0.4
-local SCAN_OTHER = 0.5
+-- Scan window duration (seconds)
+local SCAN_WINDOW = 0.7
 
 local running = false
-local scanning = false          -- prevent overlapping scans
-local connections = {}          -- store all event connections for cleanup
-local character = nil
-local animatorConnections = {}  -- for each animator, store its connection
+local scanActive = false          -- are we inside a scan window?
+local pressedInWindow = false     -- did we already press in this window?
+local scanTimer = nil             -- thread handle for the window timer
+
+local connections = {}            -- all event connections for cleanup
+local comboConnection = nil       -- connection to Combo.Changed
 
 -- --------------------------------------------------------------------
 -- Helper: press a key using VirtualInputManager
@@ -30,42 +31,35 @@ local function pressKey(key)
 end
 
 -- --------------------------------------------------------------------
--- Scan for combo change within a time limit
+-- Reset the scan window (called when combo changes or we stop)
 -- --------------------------------------------------------------------
-local function scanForComboChange(duration, keys)
-    if scanning then return end
-    scanning = true
-
-    -- Get combo value
-    local stats = player:FindFirstChild("Stats")
-    local combo = stats and stats:FindFirstChild("Combo")
-    if not combo or type(combo.Value) ~= "number" then
-        scanning = false
-        return
+local function resetScanWindow()
+    if scanTimer then
+        task.cancel(scanTimer)
+        scanTimer = nil
     end
+    scanActive = false
+    pressedInWindow = false
+end
 
-    local initial = combo.Value
-    local startTime = os.clock()
-    local success = false
+-- --------------------------------------------------------------------
+-- Start a new scan window (called on combo change)
+-- --------------------------------------------------------------------
+local function startScanWindow()
+    resetScanWindow()  -- cancel any pending window
 
-    -- Wait for combo to change
-    while os.clock() - startTime < duration and scanning do
-        task.wait(0.05)
-        if combo.Value ~= initial then
-            success = true
-            break
+    scanActive = true
+    pressedInWindow = false
+
+    -- Set a timer to close the window after SCAN_WINDOW seconds
+    scanTimer = task.spawn(function()
+        task.wait(SCAN_WINDOW)
+        if running then
+            scanActive = false
+            pressedInWindow = false
         end
-    end
-
-    scanning = false
-
-    if success then
-        -- Press each key in order
-        for _, key in ipairs(keys) do
-            pressKey(key)
-            task.wait(0.02) -- small gap between key presses
-        end
-    end
+        scanTimer = nil
+    end)
 end
 
 -- --------------------------------------------------------------------
@@ -73,29 +67,48 @@ end
 -- --------------------------------------------------------------------
 local function onAnimationPlayed(track)
     if not running then return end
-    if not track or not track.Animation then return end
+    if not scanActive then return end          -- ignore animations outside scan window
+    if pressedInWindow then return end         -- already pressed in this window
 
+    if not track or not track.Animation then return end
     local id = track.Animation.AnimationId
     if not id then return end
 
     -- Check for Cero animation (triggers 3+4)
     if id == ANIM_CERO then
-        task.spawn(scanForComboChange, SCAN_CERO, {Enum.KeyCode.Three, Enum.KeyCode.Four})
+        pressedInWindow = true
+        task.spawn(function()
+            pressKey(Enum.KeyCode.Three)
+            task.wait(0.02)
+            pressKey(Enum.KeyCode.Four)
+        end)
         return
     end
 
     -- Check for other animation (triggers 1)
     if id == ANIM_OTHER then
-        task.spawn(scanForComboChange, SCAN_OTHER, {Enum.KeyCode.One})
+        pressedInWindow = true
+        task.spawn(function()
+            pressKey(Enum.KeyCode.One)
+        end)
         return
     end
+end
+
+-- --------------------------------------------------------------------
+-- Combo value changed – trigger a new scan window
+-- --------------------------------------------------------------------
+local function onComboChanged()
+    if not running then return end
+    startScanWindow()
 end
 
 -- --------------------------------------------------------------------
 -- Hook into all Animator/AnimationController instances on a model
 -- --------------------------------------------------------------------
 local function hookAnimators(model)
-    -- Find all animators
+    if not model then return end
+
     local animators = {}
     local hum = model:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -113,16 +126,13 @@ local function hookAnimators(model)
 
     -- Connect to each animator's AnimationPlayed
     for _, animator in ipairs(animators) do
-        if not animatorConnections[animator] then
-            local conn = animator.AnimationPlayed:Connect(onAnimationPlayed)
-            animatorConnections[animator] = conn
-            table.insert(connections, conn)
-        end
+        local conn = animator.AnimationPlayed:Connect(onAnimationPlayed)
+        table.insert(connections, conn)
     end
 end
 
 -- --------------------------------------------------------------------
--- Setup for the current character
+-- Setup for the current character – hook animators and combo
 -- --------------------------------------------------------------------
 local function setupCharacter(char)
     -- Clear old connections
@@ -130,11 +140,25 @@ local function setupCharacter(char)
         pcall(conn.Disconnect, conn)
     end
     connections = {}
-    animatorConnections = {}
-    scanning = false
 
-    if char then
-        hookAnimators(char)
+    if comboConnection then
+        comboConnection:Disconnect()
+        comboConnection = nil
+    end
+
+    resetScanWindow()
+
+    if not char then return end
+
+    -- Hook animators
+    hookAnimators(char)
+
+    -- Hook combo change
+    local stats = player:FindFirstChild("Stats")
+    local combo = stats and stats:FindFirstChild("Combo")
+    if combo then
+        comboConnection = combo.Changed:Connect(onComboChanged)
+        table.insert(connections, comboConnection)
     end
 end
 
@@ -145,23 +169,16 @@ function module.Start()
     if running then return end
     running = true
 
-    character = player.Character
-    if character then
-        setupCharacter(character)
+    local char = player.Character
+    if char then
+        setupCharacter(char)
     end
 
     -- Listen for character respawn
     local charAddedConn = player.CharacterAdded:Connect(function(newChar)
-        character = newChar
         setupCharacter(newChar)
     end)
     table.insert(connections, charAddedConn)
-
-    -- Also listen for character removal to clean up (optional)
-    local charRemovingConn = player.CharacterRemoving:Connect(function()
-        -- no need to do much; setup on next character will clean
-    end)
-    table.insert(connections, charRemovingConn)
 end
 
 function module.Stop()
@@ -172,9 +189,13 @@ function module.Stop()
         pcall(conn.Disconnect, conn)
     end
     connections = {}
-    animatorConnections = {}
-    scanning = false
-    character = nil
+
+    if comboConnection then
+        comboConnection:Disconnect()
+        comboConnection = nil
+    end
+
+    resetScanWindow()
 end
 
 return module
