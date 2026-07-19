@@ -2,22 +2,31 @@ local module = {}
 
 local Players = game:GetService("Players")
 local VirtualInput = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
 -- Animation IDs to watch
-local ANIM_CERO = "rbxassetid://1470532199"   -- triggers 3+4
+local ANIM_CERO = "rbxassetid://1470532199"   -- triggers 3+4 + gravity boost
 local ANIM_OTHER = "rbxassetid://1461157246"  -- triggers 1
 
 -- Scan window duration (seconds)
 local SCAN_WINDOW = 0.7
 
-local running = false
-local scanActive = false          -- are we inside a scan window?
-local pressedInWindow = false     -- did we already press in this window?
-local scanTimer = nil             -- thread handle for the window timer
+-- Gravity multiplier and duration
+local GRAVITY_MULTIPLIER = 4
+local GRAVITY_DURATION = 5  -- seconds
 
-local connections = {}            -- all event connections for cleanup
-local comboConnection = nil       -- connection to Combo.Changed
+local running = false
+local scanActive = false
+local pressedInWindow = false
+local scanTimer = nil
+
+local connections = {}
+local comboConnection = nil
+
+-- Gravity state
+local gravityTimer = nil
+local originalGravity = Workspace.Gravity
 
 -- --------------------------------------------------------------------
 -- Helper: press a key using VirtualInputManager
@@ -31,7 +40,44 @@ local function pressKey(key)
 end
 
 -- --------------------------------------------------------------------
--- Reset the scan window (called when combo changes or we stop)
+-- Gravity boost: set to 4× for 5 seconds, then revert
+-- --------------------------------------------------------------------
+local function setGravityBoost()
+    -- Cancel any pending revert
+    if gravityTimer then
+        task.cancel(gravityTimer)
+        gravityTimer = nil
+    end
+
+    -- Store current (in case it was already modified)
+    originalGravity = Workspace.Gravity
+
+    -- Apply 4×
+    Workspace.Gravity = originalGravity * GRAVITY_MULTIPLIER
+
+    -- Schedule revert
+    gravityTimer = task.spawn(function()
+        task.wait(GRAVITY_DURATION)
+        if running then
+            Workspace.Gravity = originalGravity
+        end
+        gravityTimer = nil
+    end)
+end
+
+-- --------------------------------------------------------------------
+-- Reset gravity to original (cleanup)
+-- --------------------------------------------------------------------
+local function resetGravity()
+    if gravityTimer then
+        task.cancel(gravityTimer)
+        gravityTimer = nil
+    end
+    Workspace.Gravity = originalGravity
+end
+
+-- --------------------------------------------------------------------
+-- Reset scan window
 -- --------------------------------------------------------------------
 local function resetScanWindow()
     if scanTimer then
@@ -46,12 +92,10 @@ end
 -- Start a new scan window (called on combo change)
 -- --------------------------------------------------------------------
 local function startScanWindow()
-    resetScanWindow()  -- cancel any pending window
-
+    resetScanWindow()
     scanActive = true
     pressedInWindow = false
 
-    -- Set a timer to close the window after SCAN_WINDOW seconds
     scanTimer = task.spawn(function()
         task.wait(SCAN_WINDOW)
         if running then
@@ -67,20 +111,22 @@ end
 -- --------------------------------------------------------------------
 local function onAnimationPlayed(track)
     if not running then return end
-    if not scanActive then return end          -- ignore animations outside scan window
-    if pressedInWindow then return end         -- already pressed in this window
+    if not scanActive then return end
+    if pressedInWindow then return end
 
     if not track or not track.Animation then return end
     local id = track.Animation.AnimationId
     if not id then return end
 
-    -- Check for Cero animation (triggers 3+4)
+    -- Check for Cero animation (triggers 3+4 + gravity boost)
     if id == ANIM_CERO then
         pressedInWindow = true
         task.spawn(function()
             pressKey(Enum.KeyCode.Three)
             task.wait(0.02)
             pressKey(Enum.KeyCode.Four)
+            -- Apply gravity boost
+            setGravityBoost()
         end)
         return
     end
@@ -96,7 +142,7 @@ local function onAnimationPlayed(track)
 end
 
 -- --------------------------------------------------------------------
--- Combo value changed – trigger a new scan window
+-- Combo changed → start scan window
 -- --------------------------------------------------------------------
 local function onComboChanged()
     if not running then return end
@@ -104,7 +150,7 @@ local function onComboChanged()
 end
 
 -- --------------------------------------------------------------------
--- Hook into all Animator/AnimationController instances on a model
+-- Hook animators
 -- --------------------------------------------------------------------
 local function hookAnimators(model)
     if not model then return end
@@ -117,14 +163,12 @@ local function hookAnimators(model)
             table.insert(animators, anim)
         end
     end
-    -- Also find any Animator or AnimationController descendants
     for _, child in ipairs(model:GetDescendants()) do
         if child:IsA("Animator") or child:IsA("AnimationController") then
             table.insert(animators, child)
         end
     end
 
-    -- Connect to each animator's AnimationPlayed
     for _, animator in ipairs(animators) do
         local conn = animator.AnimationPlayed:Connect(onAnimationPlayed)
         table.insert(connections, conn)
@@ -132,10 +176,9 @@ local function hookAnimators(model)
 end
 
 -- --------------------------------------------------------------------
--- Setup for the current character – hook animators and combo
+-- Setup character
 -- --------------------------------------------------------------------
 local function setupCharacter(char)
-    -- Clear old connections
     for _, conn in ipairs(connections) do
         pcall(conn.Disconnect, conn)
     end
@@ -147,13 +190,12 @@ local function setupCharacter(char)
     end
 
     resetScanWindow()
+    resetGravity()  -- reset gravity to original on character change
 
     if not char then return end
 
-    -- Hook animators
     hookAnimators(char)
 
-    -- Hook combo change
     local stats = player:FindFirstChild("Stats")
     local combo = stats and stats:FindFirstChild("Combo")
     if combo then
@@ -169,12 +211,13 @@ function module.Start()
     if running then return end
     running = true
 
+    originalGravity = Workspace.Gravity  -- capture initial
+
     local char = player.Character
     if char then
         setupCharacter(char)
     end
 
-    -- Listen for character respawn
     local charAddedConn = player.CharacterAdded:Connect(function(newChar)
         setupCharacter(newChar)
     end)
@@ -196,6 +239,7 @@ function module.Stop()
     end
 
     resetScanWindow()
+    resetGravity()  -- revert gravity on stop
 end
 
 return module
