@@ -1,1 +1,180 @@
-local a={}local b=game:GetService("Workspace")local c=game:GetService("Players")local d=game:GetService("RunService")local e=game:GetService("VirtualInputManager")local f=c.LocalPlayer local g=b:WaitForChild("Live")local h=-4 local i=3 local j=1 local k=5 local l=25 local m=false local n=false local o=nil local p=nil local q=0 local r=false local s=false local t=nil local u=nil local v=nil local w=0 local x={}local y=nil local z=nil local A=nil local B=nil local C={}local function D()return f.Character end local function E(F)pcall(function()e:SendKeyEvent(true,F,false,game)task.wait(.01)e:SendKeyEvent(false,F,false,game)end)end local function G()local H=D()if not H then return end local I=H:FindFirstChild("HumanoidRootPart")if not I then return end local J="Lilynette-"..f.Name local K=nil local L=l+1 for _,M in pairs(g:GetChildren())do if M~=H and M.Name~=J then local N=M:FindFirstChildOfClass("Humanoid")if N and N.Health>0 then local O=M:FindFirstChild("HumanoidRootPart")if O then local P=(O.Position-I.Position).Magnitude if P<L and P<=l then L=P K=M end end end end end return K end local function Q()if not n then if p then task.cancel(p)p=nil end return end n=false if p then task.cancel(p)p=nil end if o then o:Disconnect()o=nil end end local function R()if n then return end n=true q=os.clock()local S=D()if not S then n=false return end local T=S:FindFirstChild("HumanoidRootPart")if not T then n=false return end o=d.Heartbeat:Connect(function()if not n then return end local U=D()if not U then Q()return end local V=U:FindFirstChild("HumanoidRootPart")if not V then Q()return end local W=U:FindFirstChildOfClass("Humanoid")if W and W.FloorMaterial~=Enum.Material.Air then Q()return end local X=G()if not X then Q()return end local Y=X:FindFirstChild("HumanoidRootPart")if not Y then Q()return end local Z=os.clock()-q local aa=h if Z>j then local ab=(Z-j)*k aa=math.min(i,h+ab)end local ac=V.Position local ad=Y.Position.Y+aa local ae=CFrame.new(Vector3.new(ac.X,ad,ac.Z))*V.CFrame.Rotation V.CFrame=ae end)end local function af()if p then task.cancel(p)p=nil end p=task.spawn(function()task.wait(1.6)Q()end)end local function ag(ah)local ai=C[ah]if ai then if ai.aj then pcall(ai.aj.Disconnect,ai.aj)end if ai.ak then pcall(ai.ak.Disconnect,ai.ak)end if ai.al then pcall(ai.al.Disconnect,ai.al)end C[ah]=nil end end local function am(ah)af()ag(ah)end local function an(ah,ao)local ai=C[ah]if not ai then return end local ap=ah:FindFirstChild("UsingSkill",true)if ap and ap:IsA("StringValue")and ap.Value=="Cero"then if p then task.cancel(p)p=nil end R()if ai.aj then pcall(ai.aj.Disconnect,ai.aj)end ai.aj=ao.AncestryChanged:Connect(function(_,aq)if aq==nil then am(ah)end end)end end local function ar()local ah=D()if not ah then return end ag(ah)local ai={}C[ah]=ai local as=ah:FindFirstChild("Action",true)if as then an(ah,as)end ai.ak=ah.DescendantAdded:Connect(function(at)if at.Name=="Action"then an(ah,at)end end)ai.al=ah.AncestryChanged:Connect(function(_,aq)if aq==nil then ag(ah)end end)end local function au()if not v then return end local av=v.Value local aw=av-w w=av if r then if aw>3 and aw<5 then r=false if t then task.cancel(t)t=nil end task.spawn(function()task.wait(.05)if m then s=true if A then task.cancel(A)A=nil end A=task.spawn(function()task.wait(1.5)s=false A=nil end)end end)end end end local function ax()if r or s then return end r=true if t then task.cancel(t)t=nil end t=task.spawn(function()task.wait(.7)if r then r=false t=nil end end)end local function ay(az)if not m then return end if not az or not az.Animation then return end local aA=az.Animation.AnimationId if not aA then return end local aB=nil local aC=string.match(aA,"(%d+)$")if aC then aB=aC else aC=string.match(aA,"%d+")if aC then aB=aC end end if not aB then return end if aB=="1470447472"then ax()end if s then if aB=="1461157246"then s=false if A then task.cancel(A)A=nil end if t then task.cancel(t)t=nil end E(Enum.KeyCode.One)elseif aB=="1470532199"then s=false if A then task.cancel(A)A=nil end if t then task.cancel(t)t=nil end E(Enum.KeyCode.Three)task.wait(.02)E(Enum.KeyCode.Four)ar()end end end local function aD(ah)for _,aE in pairs(x)do pcall(aE.Disconnect,aE)end x={}local function aF(aG)if aG and aG.AnimationPlayed then local aH=aG.AnimationPlayed:Connect(ay)table.insert(x,aH)end end local aI=ah:FindFirstChildOfClass("Humanoid")if aI then aF(aI)end for _,aJ in ipairs(ah:GetDescendants())do if aJ:IsA("Animator")or aJ:IsA("AnimationController")then aF(aJ)end end end local function aK()if u then u:Disconnect()u=nil end local ah=D()if not ah then return end local aL=ah:FindFirstChild("DamageDone")if not aL then local aM aM=ah.ChildAdded:Connect(function(aN)if aN.Name=="DamageDone"then if aM then aM:Disconnect()end v=aN w=aN.Value u=v.Changed:Connect(au)end end)return end v=aL w=aL.Value u=v.Changed:Connect(au)end local function aO(ah)task.wait(.2)aK()aD(ah)r=false s=false if t then task.cancel(t)t=nil end if A then task.cancel(A)A=nil end if n then Q()end ag(ah)end local function aP(ah)Q()for _,aE in pairs(x)do pcall(aE.Disconnect,aE)end x={}ag(ah)r=false s=false if t then task.cancel(t)t=nil end if A then task.cancel(A)A=nil end if u then u:Disconnect()u=nil end end function a.Start()if m then return end m=true y=f.CharacterAdded:Connect(aO)z=f.CharacterRemoving:Connect(aP)B=g.ChildAdded:Connect(function(aQ)if aQ:IsA("Model")and aQ.Name==f.Name then local aR=f.Character if aR and aR==aQ then if not aQ:FindFirstChild("DamageDone")or not aQ:GetAttribute("_damageSetup")then aO(aQ)aQ:SetAttribute("_damageSetup",true)end end end end)local ah=f.Character if ah then aO(ah)end end function a.Stop()if not m then return end m=false if y then y:Disconnect()y=nil end if z then z:Disconnect()z=nil end if B then B:Disconnect()B=nil end Q()for _,aE in pairs(x)do pcall(aE.Disconnect,aE)end x={}if u then u:Disconnect()u=nil end v=nil w=0 local ah=D()if ah then ag(ah)end r=false s=false if t then task.cancel(t)t=nil end if A then task.cancel(A)A=nil end n=false if p then task.cancel(p)p=nil end if o then o:Disconnect()o=nil end end return a
+local module = {}
+
+local Players = game:GetService("Players")
+local VirtualInput = game:GetService("VirtualInputManager")
+local player = Players.LocalPlayer
+
+-- Animation IDs to watch
+local ANIM_CERO = "rbxassetid://1470532199"   -- triggers 3+4
+local ANIM_OTHER = "rbxassetid://1461157246"  -- triggers 1
+
+-- Scan durations (seconds)
+local SCAN_CERO = 0.4
+local SCAN_OTHER = 0.5
+
+local running = false
+local scanning = false          -- prevent overlapping scans
+local connections = {}          -- store all event connections for cleanup
+local character = nil
+local animatorConnections = {}  -- for each animator, store its connection
+
+-- --------------------------------------------------------------------
+-- Helper: press a key using VirtualInputManager
+-- --------------------------------------------------------------------
+local function pressKey(key)
+    pcall(function()
+        VirtualInput:SendKeyEvent(true, key, false, game)
+        task.wait(0.01)
+        VirtualInput:SendKeyEvent(false, key, false, game)
+    end)
+end
+
+-- --------------------------------------------------------------------
+-- Scan for combo change within a time limit
+-- --------------------------------------------------------------------
+local function scanForComboChange(duration, keys)
+    if scanning then return end
+    scanning = true
+
+    -- Get combo value
+    local stats = player:FindFirstChild("Stats")
+    local combo = stats and stats:FindFirstChild("Combo")
+    if not combo or type(combo.Value) ~= "number" then
+        scanning = false
+        return
+    end
+
+    local initial = combo.Value
+    local startTime = os.clock()
+    local success = false
+
+    -- Wait for combo to change
+    while os.clock() - startTime < duration and scanning do
+        task.wait(0.05)
+        if combo.Value ~= initial then
+            success = true
+            break
+        end
+    end
+
+    scanning = false
+
+    if success then
+        -- Press each key in order
+        for _, key in ipairs(keys) do
+            pressKey(key)
+            task.wait(0.02) -- small gap between key presses
+        end
+    end
+end
+
+-- --------------------------------------------------------------------
+-- Called when any animation track starts playing
+-- --------------------------------------------------------------------
+local function onAnimationPlayed(track)
+    if not running then return end
+    if not track or not track.Animation then return end
+
+    local id = track.Animation.AnimationId
+    if not id then return end
+
+    -- Check for Cero animation (triggers 3+4)
+    if id == ANIM_CERO then
+        task.spawn(scanForComboChange, SCAN_CERO, {Enum.KeyCode.Three, Enum.KeyCode.Four})
+        return
+    end
+
+    -- Check for other animation (triggers 1)
+    if id == ANIM_OTHER then
+        task.spawn(scanForComboChange, SCAN_OTHER, {Enum.KeyCode.One})
+        return
+    end
+end
+
+-- --------------------------------------------------------------------
+-- Hook into all Animator/AnimationController instances on a model
+-- --------------------------------------------------------------------
+local function hookAnimators(model)
+    -- Find all animators
+    local animators = {}
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local anim = hum:FindFirstChild("Animator")
+        if anim then
+            table.insert(animators, anim)
+        end
+    end
+    -- Also find any Animator or AnimationController descendants
+    for _, child in ipairs(model:GetDescendants()) do
+        if child:IsA("Animator") or child:IsA("AnimationController") then
+            table.insert(animators, child)
+        end
+    end
+
+    -- Connect to each animator's AnimationPlayed
+    for _, animator in ipairs(animators) do
+        if not animatorConnections[animator] then
+            local conn = animator.AnimationPlayed:Connect(onAnimationPlayed)
+            animatorConnections[animator] = conn
+            table.insert(connections, conn)
+        end
+    end
+end
+
+-- --------------------------------------------------------------------
+-- Setup for the current character
+-- --------------------------------------------------------------------
+local function setupCharacter(char)
+    -- Clear old connections
+    for _, conn in ipairs(connections) do
+        pcall(conn.Disconnect, conn)
+    end
+    connections = {}
+    animatorConnections = {}
+    scanning = false
+
+    if char then
+        hookAnimators(char)
+    end
+end
+
+-- --------------------------------------------------------------------
+-- Public API
+-- --------------------------------------------------------------------
+function module.Start()
+    if running then return end
+    running = true
+
+    character = player.Character
+    if character then
+        setupCharacter(character)
+    end
+
+    -- Listen for character respawn
+    local charAddedConn = player.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        setupCharacter(newChar)
+    end)
+    table.insert(connections, charAddedConn)
+
+    -- Also listen for character removal to clean up (optional)
+    local charRemovingConn = player.CharacterRemoving:Connect(function()
+        -- no need to do much; setup on next character will clean
+    end)
+    table.insert(connections, charRemovingConn)
+end
+
+function module.Stop()
+    if not running then return end
+    running = false
+
+    for _, conn in ipairs(connections) do
+        pcall(conn.Disconnect, conn)
+    end
+    connections = {}
+    animatorConnections = {}
+    scanning = false
+    character = nil
+end
+
+return module
