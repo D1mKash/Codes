@@ -2,6 +2,11 @@ local Module = {}
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local LIVE = Workspace:WaitForChild("Live")
+local STANDS = Workspace:WaitForChild("Stands")
 
 -- Animation IDs that trigger a 0.3 second scan (short)
 local SHORT_ANIMATIONS = {
@@ -37,11 +42,18 @@ local LAST_ANIMATIONS = {
 local running = false
 local scanning = false
 local clickPending = false
-local animator = nil
+local animator = nil          -- current Animator object we're listening to
+local animatorConnection = nil -- connection to AnimationPlayed (if using that) – but we scan via GetPlayingAnimationTracks, so not needed
 local active = {}
 
+-- For tracking stand/character source
+local currentAnimModel = nil
+local standAddedConnection = nil
+local standRemovedConnection = nil
+local characterAddedConnection = nil
+
 -- --------------------------------------------------------------------
--- Get current ping from the GUI label (e.g., "32 ms")
+-- Ping reading (unchanged)
 -- --------------------------------------------------------------------
 local function getPing()
     local gui = player:FindFirstChild("PlayerGui")
@@ -65,8 +77,7 @@ local function getPing()
 end
 
 -- --------------------------------------------------------------------
--- Adjust delay based on ping:
--- subtract 0.01 for every 20 ms above 40 ms
+-- Adjust delay based on ping (same as before)
 -- --------------------------------------------------------------------
 local function getAdjustedDelay(baseDelay)
     local ping = getPing()
@@ -89,7 +100,7 @@ local function performClick()
 end
 
 -- --------------------------------------------------------------------
--- Scan function
+-- Scan function (unchanged)
 -- --------------------------------------------------------------------
 local function scan(duration, baseClickDelay)
     if scanning or clickPending then
@@ -133,17 +144,117 @@ local function scan(duration, baseClickDelay)
 end
 
 -- --------------------------------------------------------------------
--- Animation detector
+-- Helper: get the Stand model (if any) for a character
+-- --------------------------------------------------------------------
+local function getStand(char)
+    if not char then return nil end
+    return STANDS:FindFirstChild(char.Name) or STANDS:FindFirstChild(player.Name)
+end
+
+-- --------------------------------------------------------------------
+-- Helper: get the animation source (Humanoid or Animator) from a model
+-- (same as in head.lua)
+-- --------------------------------------------------------------------
+local function getAnimationSource(model)
+    if not model then return nil end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if hum then
+        return hum
+    end
+    local animator = model:FindFirstChildWhichIsA("Animator", true)
+    if animator then
+        return animator
+    end
+    local controller = model:FindFirstChildWhichIsA("AnimationController", true)
+    if controller then
+        return controller:FindFirstChildOfClass("Animator") or controller:WaitForChild("Animator", 5)
+    end
+    return nil
+end
+
+-- --------------------------------------------------------------------
+-- Update the animator source (stand or character)
+-- --------------------------------------------------------------------
+local function updateAnimatorSource(char)
+    -- Clean previous connections
+    if animatorConnection then
+        animatorConnection:Disconnect()
+        animatorConnection = nil
+    end
+
+    local stand = getStand(char)
+    local sourceModel = stand or char
+    currentAnimModel = sourceModel
+
+    local source = getAnimationSource(sourceModel)
+    if source then
+        -- If it's a Humanoid, get its Animator
+        if source:IsA("Humanoid") then
+            animator = source:FindFirstChild("Animator")
+        elseif source:IsA("Animator") then
+            animator = source
+        else
+            animator = nil
+        end
+
+        -- Optionally, we could listen to AnimationPlayed, but we're polling, so not needed.
+        -- However, we could set up a connection if we want to be notified, but we'll just rely on the loop.
+    else
+        animator = nil
+    end
+end
+
+-- --------------------------------------------------------------------
+-- Character setup: called when character appears or stand changes
+-- --------------------------------------------------------------------
+local function setup(char)
+    if not char then return end
+    updateAnimatorSource(char)
+    table.clear(active)
+end
+
+-- --------------------------------------------------------------------
+-- Stand added/removed connections
+-- --------------------------------------------------------------------
+local function setupStandListeners(char)
+    if standAddedConnection then
+        standAddedConnection:Disconnect()
+        standAddedConnection = nil
+    end
+    if standRemovedConnection then
+        standRemovedConnection:Disconnect()
+        standRemovedConnection = nil
+    end
+
+    standAddedConnection = STANDS.ChildAdded:Connect(function(child)
+        if not running then return end
+        if not player.Character or player.Character ~= char then return end
+        if child.Name == char.Name or child.Name == player.Name then
+            task.wait(0.1) -- allow stand to fully load
+            setup(char)
+        end
+    end)
+
+    standRemovedConnection = STANDS.ChildRemoved:Connect(function(child)
+        if not running then return end
+        if not player.Character or player.Character ~= char then return end
+        if child == currentAnimModel then
+            task.wait(0.1)
+            setup(char) -- fallback to character
+        end
+    end)
+end
+
+-- --------------------------------------------------------------------
+-- Animation detector (polling)
 -- --------------------------------------------------------------------
 local function checkAnimations()
-    local char = player.Character
-    if not char then return end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-
     if not animator then
-        animator = hum:FindFirstChild("Animator")
+        -- try to re-acquire if animator is nil but maybe it exists now
+        local char = player.Character
+        if char then
+            updateAnimatorSource(char)
+        end
         if not animator then return end
     end
 
@@ -180,7 +291,7 @@ local function checkAnimations()
                 end
             end
 
-            -- Check LAST (new)
+            -- Check LAST
             if not matched then
                 for _, animId in ipairs(LAST_ANIMATIONS) do
                     if string.find(id, animId) then
@@ -208,15 +319,6 @@ local function checkAnimations()
 end
 
 -- --------------------------------------------------------------------
--- Character setup
--- --------------------------------------------------------------------
-local function setup(char)
-    local hum = char:WaitForChild("Humanoid")
-    animator = hum:WaitForChild("Animator")
-    table.clear(active)
-end
-
--- --------------------------------------------------------------------
 -- Main loop (0.05s check interval)
 -- --------------------------------------------------------------------
 local function loop()
@@ -235,11 +337,17 @@ function Module.Start()
     if running then return end
     running = true
 
-    if player.Character then
-        setup(player.Character)
+    local char = player.Character
+    if char then
+        setup(char)
+        setupStandListeners(char)
     end
 
-    player.CharacterAdded:Connect(setup)
+    characterAddedConnection = player.CharacterAdded:Connect(function(newChar)
+        setup(newChar)
+        setupStandListeners(newChar)
+    end)
+
     loop()
 end
 
@@ -249,6 +357,25 @@ function Module.Stop()
     clickPending = false
     animator = nil
     table.clear(active)
+
+    if animatorConnection then
+        animatorConnection:Disconnect()
+        animatorConnection = nil
+    end
+    if standAddedConnection then
+        standAddedConnection:Disconnect()
+        standAddedConnection = nil
+    end
+    if standRemovedConnection then
+        standRemovedConnection:Disconnect()
+        standRemovedConnection = nil
+    end
+    if characterAddedConnection then
+        characterAddedConnection:Disconnect()
+        characterAddedConnection = nil
+    end
+
+    currentAnimModel = nil
 end
 
 return Module
