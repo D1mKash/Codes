@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 
 local animationDelays = {
-    ["rbxassetid://77102803675218"]  = 0.6,
+    ["rbxassetid://77102803675218"]  = 0.7,
     ["rbxassetid://86485944206392"]  = 1.0,
     ["rbxassetid://137127919224043"] = 0.6,
     ["rbxassetid://137954059657357"] = 0.45,
