@@ -1,41 +1,96 @@
-local _0xA={}local _0x1=nil
+local module = {}
 
-local function _0x2()
-local _0x3=game:GetService("Players").LocalPlayer
-local _0x4=_0x3:FindFirstChild("Backpack")if not _0x4 then return false end
+local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
 
-local _0x5=_0x4:FindFirstChild("Black Flash")or _0x4:FindFirstChild("Taijutsu Combo")
-if not _0x5 or not _0x5:IsA("Configuration")then return false end
+local animationDelays = {
+    ["rbxassetid://77102803675218"]  = 0.6,
+    ["rbxassetid://86485944206392"]  = 1.0,
+    ["rbxassetid://137127919224043"] = 0.6,
+    ["rbxassetid://137954059657357"] = 0.45,
+}
 
-local _0x6=_0x5:GetAttribute("COOLDOWN")
-if _0x6==nil or _0x6==20 then return true end
+local player = Players.LocalPlayer
+local character = player.Character
+local animator = character and character:FindFirstChildOfClass("Animator")
+local connections = {}
+local pendingTasks = {}
 
-return false
+local function click()
+    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 end
 
-function _0xA.Start()
-local _0x7=game:GetService("UserInputService")
-local _0x8=game:GetService("VirtualInputManager")
+local function onAnimationPlayed(animationTrack)
+    local animId = animationTrack.AnimationId
+    local delay = animationDelays[animId]
+    if not delay then return end
 
-local function _0x9()
-_0x8:SendMouseButtonEvent(0,0,0,true,game,0)
-_0x8:SendMouseButtonEvent(0,0,0,false,game,0)
+    local taskId = os.clock()
+    pendingTasks[taskId] = task.delay(delay, function()
+        pendingTasks[taskId] = nil
+        click()
+    end)
 end
 
-_0x1=_0x7.InputBegan:Connect(function(_0x10,_0x11)
-if _0x11 then return end
+local function setupAnimator(newCharacter)
+    if connections.animator then
+        connections.animator:Disconnect()
+        connections.animator = nil
+    end
+    if connections.character then
+        connections.character:Disconnect()
+        connections.character = nil
+    end
 
-if _0x10.KeyCode==Enum.KeyCode.Two then
-if not _0x2()then return end
-task.wait(0.6)
-_0x9()
+    if newCharacter then
+        character = newCharacter
+    else
+        character = player.Character
+    end
+
+    if not character then return end
+
+    animator = character:FindFirstChildOfClass("Animator")
+    if animator then
+        connections.animator = animator.AnimationPlayed:Connect(onAnimationPlayed)
+    end
+
+    connections.character = character.AncestryChanged:Connect(function()
+        if not character.Parent then
+            if connections.animator then
+                connections.animator:Disconnect()
+                connections.animator = nil
+            end
+        end
+    end)
 end
 
-end)
+function module.Start()
+    -- Clear any existing setup
+    module.Stop()
+
+    -- Initial setup
+    setupAnimator()
+
+    -- Watch for character respawns
+    connections.player = player.CharacterAdded:Connect(setupAnimator)
 end
 
-function _0xA.Stop()
-if _0x1 then _0x1:Disconnect()_0x1=nil end
+function module.Stop()
+    for _, taskId in pairs(pendingTasks) do
+        if taskId then
+            task.cancel(taskId)
+        end
+    end
+    pendingTasks = {}
+
+    for _, conn in pairs(connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    connections = {}
 end
 
-return _0xA
+return module
