@@ -10,7 +10,8 @@ local player = Players.LocalPlayer
 -- SETTINGS
 ------------------------------------------------
 local TRIGGER_KEY = Enum.KeyCode.Four    -- key that starts the Space + click combo
-local CLICK_HOLD_TIME = 0.08             -- how long Left Click is held
+local CLICK_DELAY = 0.7                  -- delay after pressing 4 before holding Left Click
+local CLICK_HOLD_TIME = 0.05             -- how long Left Click is held
 local SPACE_HOLD_TIME = 0.1              -- how long Space stays held after the click releases
 
 ------------------------------------------------
@@ -125,7 +126,14 @@ local function comboSequence()
 		return
 	end
 
-	-- Hold Left Click, release it, then release Space + restore jump.
+	-- Wait 0.7s (Space is held the whole time), then hold Left Click.
+	task.wait(CLICK_DELAY)
+	if not running then
+		holdKeyUp(Enum.KeyCode.Space)
+		restoreJumping()
+		comboActive = false
+		return
+	end
 	holdMouseDown()
 
 	task.wait(CLICK_HOLD_TIME)
@@ -242,3 +250,5 @@ function m.Stop()
 end
 
 return m
+
+
