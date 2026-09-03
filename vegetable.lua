@@ -191,8 +191,8 @@ local function onAnimationPlayed(track)
 		if hasInBackpack("Final Destruction") then
 			pressKey(Enum.KeyCode.Two)
 		elseif hasInBackpack("God Big Bang") then
-			-- Wait 0.2s, then press 3.
-			task.delay(0.2, function()
+			-- Wait 0.8s, then press 3.
+			task.delay(0.8, function()
 				if not running then return end
 				pressKey(Enum.KeyCode.Three)
 			end)
