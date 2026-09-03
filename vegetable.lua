@@ -192,7 +192,7 @@ local function onAnimationPlayed(track)
 			pressKey(Enum.KeyCode.Two)
 		elseif hasInBackpack("God Big Bang") then
 			-- Wait 0.8s, then press 3.
-			task.delay(0.5, function()
+			task.delay(0.6, function()
 				if not running then return end
 				pressKey(Enum.KeyCode.Three)
 			end)
