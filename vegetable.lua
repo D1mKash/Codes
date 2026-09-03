@@ -116,18 +116,12 @@ end
 -- 4 COMBO: disable jump -> hold Space -> hold click -> release click -> release Space
 ------------------------------------------------
 local function comboSequence()
-	local char = player.Character
-	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-
 	local function cancel()
 		holdMouseUp()
 		holdKeyUp(Enum.KeyCode.Space)
 		restoreJumping()
 		comboActive = false
 	end
-
-	-- Disable jump right away (before Space is held).
-	disableJumping(humanoid)
 
 	-- Hold Space first...
 	task.wait(KEY_DOWN_DELAY)
@@ -159,6 +153,11 @@ local function onInputBegan(input)
 	if comboActive then return end
 
 	comboActive = true
+
+	-- Disable jump immediately the instant 4 is pressed.
+	local char = player.Character
+	disableJumping(char and char:FindFirstChildOfClass("Humanoid"))
+
 	task.spawn(comboSequence)
 end
 
