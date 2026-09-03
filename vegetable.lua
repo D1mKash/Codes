@@ -10,7 +10,7 @@ local player = Players.LocalPlayer
 -- SETTINGS
 ------------------------------------------------
 local TRIGGER_KEY = Enum.KeyCode.Four    -- key that starts the Space + click combo
-local CLICK_DELAY = 0.05                  -- delay after pressing 4 before holding Left Click
+local CLICK_DELAY = 0.03                  -- delay after pressing 4 before holding Left Click
 local CLICK_HOLD_TIME = 0.05             -- how long Left Click is held
 local SPACE_HOLD_TIME = 0.1              -- how long Space stays held after the click releases
 
