@@ -10,7 +10,7 @@ local player = Players.LocalPlayer
 -- SETTINGS
 ------------------------------------------------
 local TRIGGER_KEY = Enum.KeyCode.Four    -- key that starts the Space + click combo
-local CLICK_DELAY = 0.07                  -- delay after pressing 4 before holding Left Click
+local CLICK_DELAY = 0.09                  -- delay after pressing 4 before holding Left Click
 local CLICK_HOLD_TIME = 0.05             -- how long Left Click is held
 local SPACE_HOLD_TIME = 0.1              -- how long Space stays held after the click releases
 
@@ -192,7 +192,7 @@ local function onAnimationPlayed(track)
 			pressKey(Enum.KeyCode.Two)
 		elseif hasInBackpack("God Big Bang") then
 			-- Wait 0.8s, then press 3.
-			task.delay(0.8, function()
+			task.delay(0.5, function()
 				if not running then return end
 				pressKey(Enum.KeyCode.Three)
 			end)
