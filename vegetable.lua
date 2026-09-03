@@ -10,8 +10,6 @@ local player = Players.LocalPlayer
 -- SETTINGS
 ------------------------------------------------
 local TRIGGER_KEY = Enum.KeyCode.Four    -- key that starts the Space + click combo
-local KEY_DOWN_DELAY = 0.07              -- wait after pressing 4 before holding Space
-local SPACE_TO_CLICK_DELAY = 0.005       -- gap between holding Space and holding click
 local CLICK_HOLD_TIME = 0.08             -- how long Left Click is held
 local SPACE_HOLD_TIME = 0.1              -- how long Space stays held after the click releases
 
@@ -76,10 +74,14 @@ end
 -- BACKPACK CHECK
 ------------------------------------------------
 -- These ability names live in the Backpack as Configuration objects, not Tools.
-local function hasInBackpack(itemName)
+local function getBackpackItem(itemName)
 	local backpack = player:FindFirstChild("Backpack")
-	if not backpack then return false end
-	return backpack:FindFirstChild(itemName) ~= nil
+	if not backpack then return nil end
+	return backpack:FindFirstChild(itemName)
+end
+
+local function hasInBackpack(itemName)
+	return getBackpackItem(itemName) ~= nil
 end
 
 ------------------------------------------------
@@ -113,31 +115,22 @@ local function restoreJumping()
 end
 
 ------------------------------------------------
--- 4 COMBO: disable jump -> hold Space -> hold click -> release click -> release Space
+-- 4 COMBO (Space is already held by the input handler)
 ------------------------------------------------
 local function comboSequence()
-	local function cancel()
-		holdMouseUp()
+	if not running then
 		holdKeyUp(Enum.KeyCode.Space)
 		restoreJumping()
 		comboActive = false
+		return
 	end
 
-	-- Hold Space first...
-	task.wait(KEY_DOWN_DELAY)
-	if not running then return cancel() end
-	holdKeyDown(Enum.KeyCode.Space)
-
-	-- ...then hold Left Click.
-	task.wait(SPACE_TO_CLICK_DELAY)
-	if not running then return cancel() end
+	-- Hold Left Click, release it, then release Space + restore jump.
 	holdMouseDown()
 
-	-- Release Left Click, but Space keeps being held.
 	task.wait(CLICK_HOLD_TIME)
 	holdMouseUp()
 
-	-- Release Space, then put jump back.
 	task.wait(SPACE_HOLD_TIME)
 	holdKeyUp(Enum.KeyCode.Space)
 	restoreJumping()
@@ -154,9 +147,10 @@ local function onInputBegan(input)
 
 	comboActive = true
 
-	-- Disable jump immediately the instant 4 is pressed.
+	-- Disable jump, then hold Space as soon as jump is disabled.
 	local char = player.Character
 	disableJumping(char and char:FindFirstChildOfClass("Humanoid"))
+	holdKeyDown(Enum.KeyCode.Space)
 
 	task.spawn(comboSequence)
 end
@@ -172,16 +166,28 @@ local function onAnimationPlayed(track)
 	if not numericId then return end
 
 	if numericId == "1461157246" then
-		-- Fast Flash Attack follow-up
+		-- Grab is ready (COOLDOWN missing or 20) -> press 1, never press 2.
+		local grab = getBackpackItem("Grab")
+		if grab then
+			local cooldown = grab:GetAttribute("COOLDOWN")
+			if cooldown == nil or cooldown == 20 then
+				pressKey(Enum.KeyCode.One)
+				return
+			end
+		end
+		-- Grab missing or on cooldown -> Fast Flash Attack -> press 2.
 		if hasInBackpack("Fast Flash Attack") then
 			pressKey(Enum.KeyCode.Two)
 		end
 	elseif numericId == "1461127258" then
-		-- God Big Bang follow-up (Final Destruction uses 2 instead of 3)
 		if hasInBackpack("Final Destruction") then
 			pressKey(Enum.KeyCode.Two)
 		elseif hasInBackpack("God Big Bang") then
-			pressKey(Enum.KeyCode.Three)
+			-- Wait 0.2s, then press 3.
+			task.delay(0.2, function()
+				if not running then return end
+				pressKey(Enum.KeyCode.Three)
+			end)
 		end
 	end
 end
@@ -236,4 +242,3 @@ function m.Stop()
 end
 
 return m
-
