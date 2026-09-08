@@ -12,6 +12,7 @@ local ANIM_START = "1461136875"    -- start move that decides the follow-up
 local ANIM_LAND = "1461137417"     -- landing move that triggers the 3 press
 local SKILL_NAME = "Dynamic Entry"
 local COOLDOWN_READY = 20          -- COOLDOWN value (or missing) means ready
+local DAMAGE_DETECT_WINDOW = 0.5   -- how long after a Damage increase animations matter
 
 ------------------------------------------------
 -- STATE
@@ -19,6 +20,10 @@ local COOLDOWN_READY = 20          -- COOLDOWN value (or missing) means ready
 local running = false
 local waitingForLand = false
 local connections = {}
+
+local detectUntil = 0
+local damageHooked = false
+local prevDamage = nil
 
 ------------------------------------------------
 -- INPUT HELPERS
@@ -42,6 +47,35 @@ local function getBackpackItem(itemName)
 end
 
 ------------------------------------------------
+-- DAMAGE DETECTION WINDOW
+------------------------------------------------
+local function isDetectionActive()
+	return os.clock() < detectUntil
+end
+
+-- Stats folder > Damage NumberValue: any increase re-arms the 0.5s window.
+local function tryHookDamage()
+	if damageHooked then return true end
+
+	local stats = player:FindFirstChild("Stats")
+	local damage = stats and stats:FindFirstChild("Damage")
+	if not damage or not damage:IsA("NumberValue") then return false end
+
+	damageHooked = true
+	prevDamage = damage.Value
+
+	table.insert(connections, damage.Changed:Connect(function(newValue)
+		if not running then return end
+		if prevDamage ~= nil and newValue > prevDamage then
+			detectUntil = os.clock() + DAMAGE_DETECT_WINDOW
+		end
+		prevDamage = newValue
+	end))
+
+	return true
+end
+
+------------------------------------------------
 -- ANIMATION HANDLER
 ------------------------------------------------
 local function onAnimationPlayed(track)
@@ -51,6 +85,9 @@ local function onAnimationPlayed(track)
 	local numericId = string.match(track.Animation.AnimationId, "(%d+)$")
 	if not numericId then return end
 
+	-- Animations only count while the damage-detection window is armed.
+	if not isDetectionActive() then return end
+
 	if numericId == ANIM_START then
 		-- A fresh start cancels any previous pending landing press.
 		waitingForLand = false
@@ -58,11 +95,10 @@ local function onAnimationPlayed(track)
 		local skill = getBackpackItem(SKILL_NAME)
 		local cooldown = skill and skill:GetAttribute("COOLDOWN")
 
-		if cooldown ~= nil and cooldown ~= COOLDOWN_READY then
-			-- On cooldown -> press 4.
+		-- Missing config, or on cooldown -> press 4. Ready -> wait for landing.
+		if not skill or (cooldown ~= nil and cooldown ~= COOLDOWN_READY) then
 			pressKey(Enum.KeyCode.Four)
 		else
-			-- Off cooldown -> wait for the landing animation, then press 3.
 			waitingForLand = true
 		end
 	elseif numericId == ANIM_LAND then
@@ -94,6 +130,7 @@ function m.Start()
 	if running then return end
 	running = true
 	waitingForLand = false
+	detectUntil = 0
 
 	if player.Character then
 		hookCharacter(player.Character)
@@ -103,11 +140,22 @@ function m.Start()
 		task.wait(0.5)
 		hookCharacter(char)
 	end))
+
+	-- Keep trying to watch Stats > Damage until it's available.
+	task.spawn(function()
+		while running do
+			if tryHookDamage() then return end
+			task.wait(0.2)
+		end
+	end)
 end
 
 function m.Stop()
 	running = false
 	waitingForLand = false
+	detectUntil = 0
+	damageHooked = false
+	prevDamage = nil
 
 	for _, conn in ipairs(connections) do
 		pcall(function()
