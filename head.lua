@@ -132,7 +132,7 @@ local function smoothFollow(targetModel)
 
 		local goal = CFrame.new(pos, pos + look)
 
-		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.475)
+		myRoot.CFrame = myRoot.CFrame:Lerp(goal, 0.0475)
 
 		R.Heartbeat:Wait()
 	end
