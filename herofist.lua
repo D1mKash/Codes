@@ -2,6 +2,7 @@ local m = {}
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
@@ -20,6 +21,12 @@ local function pressKey(key)
 	pcall(function()
 		VIM:SendKeyEvent(true, key, false, game)
 		task.wait(0.01)
+		VIM:SendKeyEvent(false, key, false, game)
+	end)
+end
+
+local function releaseKey(key)
+	pcall(function()
 		VIM:SendKeyEvent(false, key, false, game)
 	end)
 end
@@ -125,7 +132,7 @@ local function onAnimationPlayed(track)
 			leftClick()
 			pressKey(Enum.KeyCode.Four)
 
-			task.wait(0.9)
+			task.wait(1.5)
 
 			if not running then
 				finalDestructionBusy = false
@@ -144,6 +151,8 @@ end
 
 local function heroFistLoop()
 	task.spawn(function()
+		local handledThisHold = false
+
 		while running do
 			task.wait(0.1)
 			if not running then return end
@@ -156,10 +165,19 @@ local function heroFistLoop()
 				continue
 			end
 
-			-- Ready + enemy within 20 studs -> press 2.
-			if isEnemyWithin(20) then
+			-- Only act while we are holding F.
+			local holdingF = UIS:IsKeyDown(Enum.KeyCode.F)
+			if not holdingF then
+				handledThisHold = false
+				continue
+			end
+
+			-- Once per F-hold: release F, then press 2 if an enemy is within 20 studs.
+			if not handledThisHold and isEnemyWithin(20) then
+				handledThisHold = true
+				releaseKey(Enum.KeyCode.F)
+				task.wait(0.05)
 				pressKey(Enum.KeyCode.Two)
-				-- Small pause so we don't re-fire before COOLDOWN updates.
 				task.wait(0.3)
 			end
 		end
