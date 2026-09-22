@@ -132,7 +132,7 @@ local function onAnimationPlayed(track)
 			leftClick()
 			pressKey(Enum.KeyCode.Four)
 
-			task.wait(1.5)
+			task.wait(1.3)
 
 			if not running then
 				finalDestructionBusy = false
@@ -172,11 +172,11 @@ local function heroFistLoop()
 				continue
 			end
 
-			-- Once per F-hold: release F, then press 2 if an enemy is within 20 studs.
-			if not handledThisHold and isEnemyWithin(20) then
+			-- Once per F-hold: release F, then press 2 if an enemy is within 18 studs.
+			if not handledThisHold and isEnemyWithin(18) then
 				handledThisHold = true
 				releaseKey(Enum.KeyCode.F)
-				task.wait(0.05)
+				task.wait(0.01)
 				pressKey(Enum.KeyCode.Two)
 				task.wait(0.3)
 			end
