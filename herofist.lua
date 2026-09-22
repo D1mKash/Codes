@@ -132,7 +132,7 @@ local function onAnimationPlayed(track)
 			leftClick()
 			pressKey(Enum.KeyCode.Four)
 
-			task.wait(1.3)
+			task.wait(1.1)
 
 			if not running then
 				finalDestructionBusy = false
@@ -154,7 +154,7 @@ local function heroFistLoop()
 		local handledThisHold = false
 
 		while running do
-			task.wait(0.1)
+			task.wait(0.01)
 			if not running then return end
 
 			local heroFist = getBackpackItem("Hero's Fist")
@@ -178,7 +178,6 @@ local function heroFistLoop()
 				releaseKey(Enum.KeyCode.F)
 				task.wait(0.01)
 				pressKey(Enum.KeyCode.Two)
-				task.wait(0.3)
 			end
 		end
 	end)
