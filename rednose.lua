@@ -105,7 +105,10 @@ local function onAnimationPlayed(track)
 	if not isDetectionActive() then return end
 
 	if numericId == ANIM_START then
-		pressKey(Enum.KeyCode.One)
+		-- Only press 1 if Chop-Chop Buzzsaw is in the backpack.
+		if getBackpackItem("Chop-Chop Buzzsaw") then
+			pressKey(Enum.KeyCode.One)
+		end
 	end
 end
 
