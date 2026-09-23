@@ -85,23 +85,30 @@ local function isValidTarget(model)
 	return true
 end
 
-local function isEnemyWithin(distance)
+local function findNearestEnemyWithin(distance)
 	local char = player.Character
-	if not char then return false end
+	if not char then return nil end
 
 	local myRoot = char:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return false end
+	if not myRoot then return nil end
+
+	local nearest = nil
+	local nearestDist = math.huge
 
 	for _, model in ipairs(LIVE:GetChildren()) do
 		if isValidTarget(model) then
 			local root = model:FindFirstChild("HumanoidRootPart")
-			if root and (root.Position - myRoot.Position).Magnitude <= distance then
-				return true
+			if root then
+				local d = (root.Position - myRoot.Position).Magnitude
+				if d <= distance and d < nearestDist then
+					nearestDist = d
+					nearest = model
+				end
 			end
 		end
 	end
 
-	return false
+	return nearest
 end
 
 ------------------------------------------------
@@ -168,17 +175,28 @@ local function heroFistLoop()
 			-- Only act while we are holding F.
 			local holdingF = UIS:IsKeyDown(Enum.KeyCode.F)
 			if not holdingF then
+				-- Stopped holding F -> do nothing.
 				handledThisHold = false
 				continue
 			end
 
-			-- Once per F-hold: release F, then press 2 if an enemy is within 18 studs.
-			if not handledThisHold and isEnemyWithin(18) then
+			-- Only fire once per F-hold.
+			if handledThisHold then continue end
+
+			-- Nearest enemy within 18 studs.
+			local target = findNearestEnemyWithin(18)
+			if not target then continue end
+
+			-- Check their "Blocking" BoolValue.
+			local blocking = target:FindFirstChild("Blocking")
+			if blocking and blocking:IsA("BoolValue") and blocking.Value == true then
+				-- They're blocking -> release F, then press 2.
 				handledThisHold = true
 				releaseKey(Enum.KeyCode.F)
 				task.wait(0.01)
 				pressKey(Enum.KeyCode.Two)
 			end
+			-- Blocking is false (or missing) -> keep waiting for it to become true.
 		end
 	end)
 end
