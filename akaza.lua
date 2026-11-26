@@ -24,9 +24,9 @@ local ANIM_CONFIG = {
 		delay = 0.4,
 		followDuration = 1.2,
 	},
-	["89353560922659"] = { -- Yuta
+	["13703569936"] = { -- Jotaro
 		delay = 0.5,
-		followDuration = 1.3,
+		followDuration = 1.0,
 	},
 	["87557571922650"] = { -- Mahito
 		delay = 2.0,
