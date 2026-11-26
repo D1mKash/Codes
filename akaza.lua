@@ -25,7 +25,7 @@ local ANIM_CONFIG = {
 		followDuration = 1.2,
 	},
 	["13703569936"] = { -- Jotaro
-		delay = 0.5,
+		delay = 0.4,
 		followDuration = 1.0,
 	},
 	["87557571922650"] = { -- Mahito
