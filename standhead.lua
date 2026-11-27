@@ -1,6 +1,8 @@
+-- Presses 2 when your stand plays the chosen animation.
 local module = {}
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
@@ -9,22 +11,35 @@ local player = Players.LocalPlayer
 -- CONFIG
 ------------------------------------------------
 local TRIGGER_ANIMS = {
-	["1470532199"] = true,
+	["1461157246"] = true,   -- stand animation -> press 2
 }
 
 local KEY = Enum.KeyCode.Two
-local RESCAN = 0.5
+local STAND_FOLDER = "Stands"
 local COOLDOWN = 0.2   -- ignore repeat events from the same attack
+local RESCAN = 1       -- re-check for new stand animators this often
 
 ------------------------------------------------
 -- STATE
 ------------------------------------------------
 local running = false
-local hooked = {}       -- animator -> true
+local hooked = {}
 local connections = {}
-local seen = {}         -- animation id -> true
 local lastPress = nil
-local log = print
+
+local function findStand()
+	local folder = Workspace:FindFirstChild(STAND_FOLDER)
+	if not folder then return nil end
+
+	local stand = folder:FindFirstChild(player.Name)
+	if stand then return stand end
+
+	local char = player.Character
+	if char then
+		return folder:FindFirstChild(char.Name)
+	end
+	return nil
+end
 
 ------------------------------------------------
 -- PRESS
@@ -41,12 +56,12 @@ local function press()
 	end)
 
 	if ok then
-		log("[sh] pressed " .. KEY.Name)
+		print("[sh] pressed " .. KEY.Name)
 	elseif type(keypress) == "function" then
 		pcall(keypress, KEY.Name)
-		log("[sh] pressed " .. KEY.Name .. " via keypress")
+		print("[sh] pressed " .. KEY.Name .. " via keypress")
 	else
-		log("[sh] PRESS FAILED")
+		print("[sh] press failed")
 	end
 end
 
@@ -58,68 +73,34 @@ local function onAnim(track)
 	if not track or not track.Animation then return end
 
 	local id = string.match(track.Animation.AnimationId or "", "(%d+)$")
-	if not id then return end
+	if not id or not TRIGGER_ANIMS[id] then return end
 
-	if not seen[id] then
-		seen[id] = true
-		log("[sh] ANIM " .. id .. (TRIGGER_ANIMS[id] and "  <-- MATCH" or ""))
-	end
-
-	if TRIGGER_ANIMS[id] then
-		press()
-	end
+	press()
 end
 
 local function hookAnimator(animator)
 	if hooked[animator] then return end
-	hooked[animator] = true
 
 	local ok, conn = pcall(function()
 		return animator.AnimationPlayed:Connect(onAnim)
 	end)
 
 	if ok and conn then
+		hooked[animator] = true
 		table.insert(connections, conn)
-		log("[sh] hooked " .. animator:GetFullName())
+		print("[sh] hooked " .. animator:GetFullName())
 	end
 end
 
-local function hookModel(model)
-	if not model then return end
+local function scan()
+	local stand = findStand()
+	if not stand then return end
 
-	for _, thing in ipairs(model:GetDescendants()) do
+	for _, thing in ipairs(stand:GetDescendants()) do
 		if thing:IsA("Animator") then
 			hookAnimator(thing)
 		elseif thing:IsA("AnimationController") and not thing:FindFirstChildOfClass("Animator") then
 			hookAnimator(thing)
-		end
-	end
-
-	local hum = model:FindFirstChildOfClass("Humanoid")
-	if hum and not model:FindFirstChildWhichIsA("Animator", true) then
-		hookAnimator(hum)
-	end
-end
-
-------------------------------------------------
--- SOURCES: character, every stand, our Live copy
-------------------------------------------------
-local function hookEverything()
-	if not running then return end
-
-	hookModel(player.Character)
-
-	local stands = workspace:FindFirstChild("Stands")
-	if stands then
-		hookModel(stands)
-	end
-
-	local live = workspace:FindFirstChild("Live")
-	local char = player.Character
-	if live and char then
-		local copy = live:FindFirstChild(char.Name) or live:FindFirstChild(player.Name)
-		if copy and copy ~= char then
-			hookModel(copy)
 		end
 	end
 end
@@ -131,19 +112,21 @@ function module.Start()
 	if running then return end
 	running = true
 
-	log("[sh] started | key " .. KEY.Name .. " | animation 1470532199")
+	scan()
 
-	hookEverything()
+	if not findStand() then
+		print("[sh] stand not found yet, waiting...")
+	end
 
 	table.insert(connections, player.CharacterAdded:Connect(function()
 		task.wait(0.5)
-		if running then hookEverything() end
+		if running then scan() end
 	end))
 
 	task.spawn(function()
 		while running do
 			task.wait(RESCAN)
-			if running then hookEverything() end
+			scan()
 		end
 	end)
 end
@@ -151,13 +134,12 @@ end
 function module.Stop()
 	running = false
 
-	for _, c in ipairs(connections) do
-		pcall(function() c:Disconnect() end)
+	for _, conn in ipairs(connections) do
+		pcall(function() conn:Disconnect() end)
 	end
 	connections = {}
 	hooked = {}
-
-	log("[sh] stopped")
+	lastPress = nil
 end
 
 function module.Press()
