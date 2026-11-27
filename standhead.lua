@@ -23,10 +23,11 @@ local DAMAGE_WINDOW = 0.7      -- animation counts this long after a hit
 local DAMAGE_GRACE = 0.15      -- animation before the hit still counts within this
 
 local FOLLOW = true            -- sit on the target's head
-local FOLLOW_DURATION = 1.0
+local FOLLOW_DURATION = 0.5
 local FOLLOW_OFFSET = Vector3.new(0, 4, 0)
 local FOLLOW_ALPHA = 0.175
 local TARGET_RANGE = 6
+local SETTLE_ON_END = true     -- hand control back when the follow stops
 
 local COOLDOWN = 0.2           -- ignore repeat events from the same attack
 local RESCAN = 1               -- re-check for new stand animators this often
@@ -130,6 +131,36 @@ local function getNearestTarget()
 	return closest
 end
 
+-- Writing CFrame every frame leaves the humanoid in a stale state and you end up
+-- hovering inside the target's model; this hands movement back to the engine.
+local function settle()
+	local char = player.Character
+	local root = getRoot(char)
+	if not root then return end
+
+	local hum = char:FindFirstChildOfClass("Humanoid")
+
+	root.AssemblyAngularVelocity = Vector3.zero
+	root.AssemblyLinearVelocity = Vector3.zero
+
+	if hum then
+		hum.PlatformStand = false
+		hum.Sit = false
+
+		local state = hum:GetState()
+		if state == Enum.HumanoidStateType.PlatformStanding
+			or state == Enum.HumanoidStateType.Seated
+			or state == Enum.HumanoidStateType.Physics then
+			hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+		elseif state ~= Enum.HumanoidStateType.Freefall then
+			hum:ChangeState(Enum.HumanoidStateType.Freefall)
+		end
+	end
+
+	-- let gravity/physics take over again instead of logging you as airborne
+	print("[sh] follow ended, control restored")
+end
+
 local function smoothFollow(targetModel, token)
 	local char = player.Character
 	if not char then return end
@@ -154,6 +185,10 @@ local function smoothFollow(targetModel, token)
 		myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.new(pos, pos + look), FOLLOW_ALPHA)
 
 		RunService.Heartbeat:Wait()
+	end
+
+	if running and SETTLE_ON_END and token == followToken then
+		settle()
 	end
 end
 
