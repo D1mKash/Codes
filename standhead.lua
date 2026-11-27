@@ -23,7 +23,7 @@ local DAMAGE_WINDOW = 0.7      -- animation counts this long after a hit
 local DAMAGE_GRACE = 0.15      -- animation before the hit still counts within this
 
 local FOLLOW = true            -- sit on the target's head
-local FOLLOW_DURATION = 0.85
+local FOLLOW_DURATION = 0.95
 local FOLLOW_OFFSET = Vector3.new(0, 4, 0)
 local FOLLOW_ALPHA = 0.175
 local TARGET_RANGE = 6
